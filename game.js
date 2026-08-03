@@ -478,7 +478,7 @@ function makeSaveRecord(){return {version:SAVE_VERSION,savedAt:new Date().toISOS
 function parseSaveRecord(raw){if(!raw)return null;try{const data=JSON.parse(raw);if(data&&data.state&&typeof data.state==='object')return data;if(data&&typeof data==='object')return {version:'legacy',savedAt:null,state:data};return null}catch(err){console.warn('저장 데이터 해석 실패',err);return null}}
 function migrateLegacySave(){const storage=getStorage();if(!storage||storage.getItem(AUTO_SAVE_KEY))return;const legacy=storage.getItem('ryuGame');if(!legacy)return;const record=parseSaveRecord(legacy);if(!record)return;try{storage.setItem(AUTO_SAVE_KEY,JSON.stringify({...record,version:record.version==='legacy'?'0.9':record.version,savedAt:record.savedAt||new Date().toISOString()}));storage.removeItem('ryuGame')}catch(err){console.warn('구버전 저장 이전 실패',err)}}
 function readSave(key){const storage=getStorage();return storage?parseSaveRecord(storage.getItem(key)):null}
-function writeSave(key,show=true){const storage=getStorage();if(!storage){if(show)toast('이 브라우저에서는 저장 기능을 사용할 수 없습니다.');return false}try{storage.setItem(key,JSON.stringify(makeSaveRecord()));if(show){toast(key===AUTO_SAVE_KEY?'자동 저장되었습니다.':'저장되었습니다.');playSfx('save')}return true}catch(err){console.warn('게임 저장 실패',err);if(show)toast('저장 공간이 부족하거나 차단되어 있습니다.');return false}}
+function writeSave(key,show=true){const storage=getStorage();if(!storage){if(show)toast('이 브라우저에서는 저장 기능을 사용할 수 없습니다.');return false}try{storage.setItem(key,JSON.stringify(makeSaveRecord()));if(typeof scheduleRankingSync==='function')scheduleRankingSync();if(show){toast(key===AUTO_SAVE_KEY?'자동 저장되었습니다.':'저장되었습니다.');playSfx('save')}return true}catch(err){console.warn('게임 저장 실패',err);if(show)toast('저장 공간이 부족하거나 차단되어 있습니다.');return false}}
 function applySaveRecord(record){if(!record?.state)return false;try{state=deepMerge(baseState,record.state);normalizeState();return true}catch(err){console.warn('저장 데이터 복구 실패',err);return false}}
 function load(key=AUTO_SAVE_KEY){migrateLegacySave();return applySaveRecord(readSave(key))}
 function save(show=true){return writeSave(AUTO_SAVE_KEY,show)}
@@ -3095,20 +3095,20 @@ function checkProgress(){
 }
 function offerEnding(name,text,force=false,offerKey=name,locked=false){if(state.endingPrompted[offerKey]&&!force)return;state.endingPrompted[offerKey]=true;state.pendingEnding={name,text,offerKey,locked:!!locked};save(false);displayPendingEnding()}
 function displayPendingEnding(){if(!state.pendingEnding)return;const {name,text,locked}=state.pendingEnding;const choices=locked?[[`${name}을 확인한다`,()=>{state.pendingEnding=null;unlockEnding(name);runEndingStory(name,true);return `${name}이 시작된다.`}]]:[['최종 엔딩을 본다',()=>{state.pendingEnding=null;unlockEnding(name);runEndingStory(name,true);return `${name}을 선택했다.`}],['계속 성장한다',()=>{state.pendingEnding=null;save(false);return '아직 끝내지 않는다. 더 높은 무대를 향해 계속 나아가기로 했다.'}]];showDialogue(locked?'돌이킬 수 없는 결말':'운명의 선택',text,choices)}
-function unlockEnding(name){if(!state.endings.includes(name)){state.endings.push(name);saveMetaEndings(state.endings);addHistory(`🏁 엔딩 해금 · ${name}`);save(false);toast(`${name} 해금!`)}}
+function unlockEnding(name){if(!state.endings.includes(name)){state.endings.push(name);saveMetaEndings(state.endings);addHistory(`🏁 엔딩 해금 · ${name}`);save(false);if(typeof scheduleRankingEndingRecord==='function')scheduleRankingEndingRecord(name,state.day);toast(`${name} 해금!`)}}
 function applyModalTheme(theme=''){
  const modal=$('#modal');if(!modal)return;
  [...modal.classList].filter(c=>c.startsWith('theme-')).forEach(c=>modal.classList.remove(c));
  if(theme)modal.classList.add(`theme-${theme}`)
 }
-function showModal(title,html,theme=''){const modal=$('#modal');if(modal.open)modal.close();if(!instagramLiveActive)modal.classList.remove('instagram-live-dialog');modal.classList.remove('ending-focus-modal','matgo-fullscreen','online-hwatu-modal');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false;applyModalTheme(theme);$('#modalTitle').textContent=title;$('#modalBody').innerHTML=html;modal.showModal();syncToastLayer()}
+function showModal(title,html,theme=''){if(typeof cleanupRankingRealtime==='function')cleanupRankingRealtime();const modal=$('#modal');if(modal.open)modal.close();if(!instagramLiveActive)modal.classList.remove('instagram-live-dialog');modal.classList.remove('ending-focus-modal','matgo-fullscreen','online-hwatu-modal');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false;applyModalTheme(theme);$('#modalTitle').textContent=title;$('#modalBody').innerHTML=html;modal.showModal();syncToastLayer()}
 function showBlockingNotice(title,html,onConfirm){
  blockingNoticeActive=true;
  showModal(title,`${html}<button id="blockingNoticeConfirm" class="primary wide">확인</button>`);
  const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=true;
  const confirm=$('#blockingNoticeConfirm');if(confirm)confirm.onclick=()=>{blockingNoticeActive=false;if(closeButton)closeButton.hidden=false;closeModal(true);if(typeof onConfirm==='function')onConfirm()};
 }
-function closeModal(force=false){const modal=$('#modal');if(!force&&modal?.classList.contains('theme-matgo')&&window.matgoIsActive?.()){window.matgoRequestClose?.();return;}if(!force&&modal?.classList.contains('theme-online')&&gostopRoomCode){if(gostopLastStatus==='playing'&&!confirm('진행 중인 고스톱에서 나가면 게임에서 이탈합니다. 나갈까요?'))return;leaveGostopRoom(true,false,true);return}if(!force&&modal?.classList.contains('theme-online')&&songQuizRoomCode){if(songQuizLastStatus==='playing'&&!confirm('류현상 노래 맞추기 대전에서 나가면 현재 대전에서 이탈합니다. 나갈까요?'))return;leaveSongQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&teamQuizRoomCode){if(teamQuizLastSnapshot?.status==='playing'&&!confirm('2vs2 퀴즈 대전에서 나가면 현재 팀 대전에서 이탈합니다. 나갈까요?'))return;leaveTeamQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&onlineQuizRoomCode){leaveOnlineQuizRoom(true,false);return}if(instagramLiveActive&&!force)return;if(blockingNoticeActive&&!force)return;if(memoryGameActive&&!force){if(typeof activeTrainingAbort==='function'){activeTrainingAbort();return}endMiniGameUi()}if(force&&instagramLiveActive){instagramLiveActive=false;modal.classList.remove('instagram-live-dialog');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(force&&blockingNoticeActive){blockingNoticeActive=false;const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(!memoryGameActive)document.documentElement.classList.remove('minigame-active');modal.classList.remove('drawer-dialog');modal.classList.remove('ending-focus-modal');modal.classList.remove('matgo-fullscreen');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false;if(modal.open)modal.close();syncToastLayer();if(endingMusicMode||customEndingBgm)exitEndingMusic();if(deferredPostAdvance&&!cardRevealPending)finishDeferredPostAdvance()}
+function closeModal(force=false){if(typeof cleanupRankingRealtime==='function')cleanupRankingRealtime();const modal=$('#modal');if(!force&&modal?.classList.contains('theme-matgo')&&window.matgoIsActive?.()){window.matgoRequestClose?.();return;}if(!force&&modal?.classList.contains('theme-online')&&gostopRoomCode){if(gostopLastStatus==='playing'&&!confirm('진행 중인 고스톱에서 나가면 게임에서 이탈합니다. 나갈까요?'))return;leaveGostopRoom(true,false,true);return}if(!force&&modal?.classList.contains('theme-online')&&songQuizRoomCode){if(songQuizLastStatus==='playing'&&!confirm('류현상 노래 맞추기 대전에서 나가면 현재 대전에서 이탈합니다. 나갈까요?'))return;leaveSongQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&teamQuizRoomCode){if(teamQuizLastSnapshot?.status==='playing'&&!confirm('2vs2 퀴즈 대전에서 나가면 현재 팀 대전에서 이탈합니다. 나갈까요?'))return;leaveTeamQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&onlineQuizRoomCode){leaveOnlineQuizRoom(true,false);return}if(instagramLiveActive&&!force)return;if(blockingNoticeActive&&!force)return;if(memoryGameActive&&!force){if(typeof activeTrainingAbort==='function'){activeTrainingAbort();return}endMiniGameUi()}if(force&&instagramLiveActive){instagramLiveActive=false;modal.classList.remove('instagram-live-dialog');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(force&&blockingNoticeActive){blockingNoticeActive=false;const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(!memoryGameActive)document.documentElement.classList.remove('minigame-active');modal.classList.remove('drawer-dialog');modal.classList.remove('ending-focus-modal');modal.classList.remove('matgo-fullscreen');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false;if(modal.open)modal.close();syncToastLayer();if(endingMusicMode||customEndingBgm)exitEndingMusic();if(deferredPostAdvance&&!cardRevealPending)finishDeferredPostAdvance()}
 function getLocationDialoguePool(loc){
  const contextual=pool=>(pool||[]).filter(line=>{if(!state.manager.hired&&/후라보노/.test(line))return false;const m=state.band.members;if(!m.guitar&&/B군/.test(line))return false;if(!m.bass&&/L군/.test(line))return false;if(!m.piano&&/J군/.test(line))return false;if(!m.drums&&/R군/.test(line))return false;return true});
  if(loc!=='practice')return contextual(dialogues[loc]);
@@ -3636,7 +3636,7 @@ const COMMUNITY_CATEGORIES=['전체','자유','공략','엔딩 인증','버그 �
 let communityDb=null,communityUserId='',communityActiveCategory='전체',communityLoading=false;
 function communityConfigured(){return !!(COMMUNITY_SUPABASE_URL&&COMMUNITY_SUPABASE_KEY)}
 function communityNickname(){try{return localStorage.getItem('ryuCommunityNickname')||''}catch{return ''}}
-function saveCommunityNickname(value){try{localStorage.setItem('ryuCommunityNickname',String(value||'').trim().slice(0,16))}catch{}}
+function saveCommunityNickname(value){try{localStorage.setItem('ryuCommunityNickname',String(value||'').trim().slice(0,16))}catch{}if(typeof scheduleRankingSync==='function')scheduleRankingSync(true)}
 function communityEsc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 function communityText(value){return communityEsc(value).replace(/\n/g,'<br>')}
 function communityDate(value){try{return new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(value))}catch{return ''}}
@@ -3734,6 +3734,128 @@ function renderCommunityPostDetail(post,comments,likes){
  $$('[data-comment-delete]').forEach(btn=>btn.onclick=async()=>{if(!confirm('댓글을 삭제하시겠습니까?'))return;btn.disabled=true;try{const {error}=await communityDb.from('comments').delete().eq('id',Number(btn.dataset.commentDelete)).eq('user_id',communityUserId);if(error)throw error;await openCommunityPost(post.id)}catch(error){toast(communityErrorMessage(error));btn.disabled=false}})
 }
 
+
+
+// v178: Supabase realtime online rankings
+const RANKING_TABS=[
+ {id:'money',label:'재산',icon:'💰',key:'money',note:'현재 보유 현금이 높은 순위입니다.'},
+ {id:'fans',label:'팬',icon:'👥',key:'fans',note:'현재 팬 수가 많은 순위입니다.'},
+ {id:'looks',label:'외모',icon:'✨',key:'looks',note:'현재 외모 능력치가 높은 순위입니다.'},
+ {id:'total',label:'종합',icon:'🎤',key:'total_score',note:'보컬 + 작곡 + 연기 + 외모 합산 점수입니다.'},
+ {id:'ending',label:'엔딩',icon:'🏁',key:'ending_count',note:'엔딩 수집 순위와 엔딩별 달성 현황을 확인합니다.'}
+];
+let rankingActiveTab='money',rankingLoading=false,rankingRealtimeChannel=null,rankingRealtimeTimer=null,rankingSyncTimer=null,rankingLastSyncAt=0,rankingSyncDisabledUntil=0,rankingEndingDetailName='';
+function rankingModalIsOpen(){const m=$('#modal');return !!(m?.open&&m.classList.contains('theme-ranking'))}
+function rankingErrorMessage(error){
+ const raw=String(error?.message||error||'알 수 없는 오류'),code=String(error?.code||'');
+ if(/anonymous|sign-?ins?.*disabled/i.test(raw))return 'Supabase의 Anonymous Sign-In을 켜 주세요.';
+ if(/PGRST202|Could not find the function|relation .* does not exist|does not exist|schema cache|42P01/i.test(raw+' '+code))return `실시간 랭킹 DB 설정이 필요합니다. ZIP 안의 SUPABASE_RANKING_V178_SETUP.sql을 Supabase SQL Editor에서 한 번 실행해 주세요.\n[오류] ${raw}`;
+ if(/row-level security|permission denied|42501/i.test(raw+' '+code))return `실시간 랭킹 DB 권한(RLS) 설정을 확인해 주세요. ZIP 안의 SUPABASE_RANKING_V178_SETUP.sql을 다시 실행해 주세요.\n[오류] ${raw}`;
+ if(/Failed to fetch|NetworkError|fetch/i.test(raw))return '인터넷 연결 또는 Supabase 접속 상태를 확인해 주세요.';
+ return `랭킹 오류: ${raw}${code?` (${code})`:''}`;
+}
+function rankingClamp(value,min,max){const n=Math.floor(Number(value)||0);return Math.max(min,Math.min(max,n))}
+function rankingLatestSavedState(){
+ try{
+  const records=[readSave(AUTO_SAVE_KEY),...MANUAL_SAVE_KEYS.map(readSave)].filter(Boolean).sort((a,b)=>new Date(b.savedAt||0)-new Date(a.savedAt||0));
+  return records[0]?.state||null;
+ }catch{return null}
+}
+function rankingSourceState(){return $('#gameScreen')?.classList.contains('active')?state:rankingLatestSavedState()}
+function rankingSnapshotFrom(source){
+ if(!source?.stats)return null;const s=source.stats||{};
+ const vocal=rankingClamp(s.vocal,0,100),compose=rankingClamp(s.compose,0,100),acting=rankingClamp(s.acting,0,100),looks=rankingClamp(s.looks,0,100);
+ return {money:rankingClamp(s.money,0,1000000000000),fans:rankingClamp(s.fans,0,1000000000),looks,fame_level:rankingClamp(Math.floor((Number(s.fame)||0)/100)+1,1,100),vocal,compose,acting,total_score:vocal+compose+acting+looks,ending_count:rankingClamp(new Set(Array.isArray(source.endings)?source.endings:[]).size,0,100),day:rankingClamp(source.day||1,1,1000000)}
+}
+function rankingValue(tab,row){if(tab==='money')return `₩${Number(row.money||0).toLocaleString()}`;if(tab==='fans')return `${Number(row.fans||0).toLocaleString()}명`;if(tab==='looks')return `${Number(row.looks||0)}점`;if(tab==='total')return `${Number(row.total_score||0)}점`;return `${Number(row.ending_count||0)}개`}
+function rankingMedal(rank){return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':String(rank)}
+function rankingDate(value){try{return new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(value))}catch{return ''}}
+function rankingHeaderHtml(){
+ const nick=communityNickname(),hasSave=!!rankingSourceState();
+ return `<section class="ranking-hero"><div><small>LIVE LEADERBOARD</small><h3>류현상 키우기 실시간 랭킹</h3><p>같은 Supabase에 연결된 플레이어들의 현재 기록을 실시간으로 비교합니다.</p></div><span class="ranking-live-dot">● LIVE</span></section>
+ <section class="ranking-profile"><div><small>내 닉네임</small><b>${nick?communityEsc(nick):'미설정'}</b><span>${hasSave?'현재/최근 저장 기록을 랭킹에 반영할 수 있습니다.':'저장된 게임이 없어 조회만 가능합니다.'}</span></div><div><button id="rankingNicknameBtn">닉네임</button><button id="rankingSyncBtn" ${nick&&hasSave?'':'disabled'}>내 기록 갱신</button><button id="rankingRefreshBtn">새로고침</button></div></section>
+ <div class="ranking-tabs">${RANKING_TABS.map(t=>`<button data-ranking-tab="${t.id}" class="${t.id===rankingActiveTab?'active':''}">${t.icon} ${t.label}</button>`).join('')}</div>`
+}
+function rankingShellHtml(){return `<div class="ranking-shell">${rankingHeaderHtml()}<div id="rankingContent" class="ranking-content"><div class="ranking-loading">🏆 랭킹을 불러오는 중...</div></div></div>`}
+function rankingBindShell(){
+ $$('[data-ranking-tab]').forEach(b=>b.onclick=()=>{rankingActiveTab=b.dataset.rankingTab;rankingEndingDetailName='';$$('[data-ranking-tab]').forEach(x=>x.classList.toggle('active',x===rankingActiveTab));loadRankingTab()});
+ const nick=$('#rankingNicknameBtn');if(nick)nick.onclick=openRankingNickname;
+ const sync=$('#rankingSyncBtn');if(sync)sync.onclick=async()=>{sync.disabled=true;try{const ok=await submitRankingSnapshot({backfillEndings:true});if(ok){toast('현재 게임 기록을 랭킹에 반영했습니다.');await loadRankingTab(true)}}catch(e){renderRankingError(e)}finally{if(sync)sync.disabled=false}};
+ const refresh=$('#rankingRefreshBtn');if(refresh)refresh.onclick=()=>loadRankingTab();
+}
+function renderRankingError(error){if(!rankingModalIsOpen())return;const body=$('#modalBody');if(!body)return;body.innerHTML=`<div class="ranking-shell">${rankingHeaderHtml()}<section class="ranking-error"><div>⚠️</div><h3>실시간 랭킹에 연결하지 못했습니다.</h3><p>${communityText(rankingErrorMessage(error))}</p><button id="rankingRetryBtn" class="primary wide">다시 연결</button></section></div>`;rankingBindShell();const retry=$('#rankingRetryBtn');if(retry)retry.onclick=openRanking}
+function openRankingNickname(){
+ showModal('랭킹 닉네임',`<div class="community-form"><p>커뮤니티와 실시간 랭킹에서 공통으로 사용할 닉네임입니다. 최대 16자.</p><input id="rankingNicknameInput" maxlength="16" placeholder="닉네임 입력" value="${communityEsc(communityNickname())}"><div class="community-form-actions"><button id="rankingNicknameBack">취소</button><button id="rankingNicknameSave" class="primary">저장</button></div></div>`,'ranking');
+ $('#rankingNicknameBack').onclick=openRanking;$('#rankingNicknameSave').onclick=()=>{const value=$('#rankingNicknameInput').value.trim();if(!value)return toast('닉네임을 입력해 주세요.');saveCommunityNickname(value);toast(`닉네임을 ${value}(으)로 저장했습니다.`);openRanking()}
+}
+async function submitRankingSnapshot({sourceState=null,backfillEndings=false}={}){
+ await ensureCommunityReady();const nick=communityNickname(),source=sourceState||rankingSourceState();if(!nick||!source)return false;const snap=rankingSnapshotFrom(source);if(!snap)return false;
+ const payload={user_id:communityUserId,nickname:nick,...snap,updated_at:new Date().toISOString()};
+ const {error}=await communityDb.from('leaderboard_profiles').upsert(payload,{onConflict:'user_id'});if(error)throw error;
+ if(backfillEndings){const nickSync=await communityDb.from('leaderboard_endings').update({nickname:nick}).eq('user_id',communityUserId);if(nickSync.error)throw nickSync.error}
+ if(backfillEndings&&Array.isArray(source.endings)&&source.endings.length){
+  const owned=[...new Set(source.endings.map(migrateEndingName))],existingRes=await communityDb.from('leaderboard_endings').select('ending_name').eq('user_id',communityUserId);if(existingRes.error)throw existingRes.error;const existing=new Set((existingRes.data||[]).map(x=>x.ending_name));
+  for(const ending of owned.filter(x=>!existing.has(x))){const {error:e}=await communityDb.rpc('record_leaderboard_ending',{p_ending_name:ending,p_clear_day:null,p_nickname:nick});if(e)throw e}
+ }
+ rankingLastSyncAt=Date.now();rankingSyncDisabledUntil=0;return true;
+}
+function scheduleRankingSync(force=false){
+ if(Date.now()<rankingSyncDisabledUntil||!communityNickname()||!$('#gameScreen')?.classList.contains('active'))return;
+ if(rankingSyncTimer)return;const wait=force?350:Math.max(600,20000-(Date.now()-rankingLastSyncAt));
+ rankingSyncTimer=setTimeout(async()=>{rankingSyncTimer=null;try{await submitRankingSnapshot({sourceState:state,backfillEndings:false})}catch(e){const raw=String(e?.message||e||'');if(/does not exist|42P01|PGRST202|permission denied|42501/i.test(raw))rankingSyncDisabledUntil=Date.now()+300000}},wait)
+}
+function scheduleRankingEndingRecord(name,clearDay){
+ const endingName=migrateEndingName(name),day=rankingClamp(clearDay,1,1000000);setTimeout(async()=>{if(!communityNickname()||Date.now()<rankingSyncDisabledUntil)return;try{await ensureCommunityReady();await submitRankingSnapshot({sourceState:state,backfillEndings:false});const {error}=await communityDb.rpc('record_leaderboard_ending',{p_ending_name:endingName,p_clear_day:day,p_nickname:communityNickname()});if(error)throw error}catch(e){const raw=String(e?.message||e||'');if(/does not exist|42P01|PGRST202|permission denied|42501/i.test(raw))rankingSyncDisabledUntil=Date.now()+300000}},0)
+}
+function rankingRowHtml(row,index,tab){
+ const rank=index+1,me=row.user_id===communityUserId,detail=tab==='total'?`보컬 ${row.vocal||0} · 작곡 ${row.compose||0} · 연기 ${row.acting||0} · 외모 ${row.looks||0}`:`${Number(row.day||1).toLocaleString()}일차 · ${rankingDate(row.updated_at)}`;
+ return `<article class="ranking-row ${rank<=3?'top-'+rank:''} ${me?'me':''}"><span class="ranking-place">${rankingMedal(rank)}</span><div class="ranking-player"><b>${communityEsc(row.nickname||'익명')}</b><small>${detail}</small></div><strong>${rankingValue(tab,row)}</strong></article>`
+}
+async function loadMetricRanking(tab,silent=false){
+ const cfg=RANKING_TABS.find(t=>t.id===tab)||RANKING_TABS[0],target=$('#rankingContent');if(!target)return;if(!silent)target.innerHTML='<div class="ranking-loading">순위를 집계하는 중...</div>';
+ let q=communityDb.from('leaderboard_profiles').select('user_id,nickname,money,fans,looks,fame_level,vocal,compose,acting,total_score,ending_count,day,updated_at').order(cfg.key,{ascending:false}).order('day',{ascending:true}).limit(100);
+ const listRes=await q;if(listRes.error)throw listRes.error;
+ const meRes=communityUserId?await communityDb.from('leaderboard_profiles').select('user_id,nickname,money,fans,looks,fame_level,vocal,compose,acting,total_score,ending_count,day,updated_at').eq('user_id',communityUserId).maybeSingle():{data:null,error:null};if(meRes.error)throw meRes.error;
+ let myRank=null;if(meRes.data){const value=Number(meRes.data[cfg.key]||0);const countRes=await communityDb.from('leaderboard_profiles').select('*',{count:'exact',head:true}).gt(cfg.key,value);if(countRes.error)throw countRes.error;myRank=Number(countRes.count||0)+1}
+ const rows=listRes.data||[],note=cfg.note;
+ target.innerHTML=`<section class="ranking-note"><b>${cfg.icon} ${cfg.label} 랭킹</b><span>${note}</span><small>TOP 100 · 같은 수치일 경우 더 적은 플레이 일수가 먼저 표시됩니다.</small></section><div class="ranking-list">${rows.length?rows.map((r,i)=>rankingRowHtml(r,i,tab)).join(''):'<div class="ranking-empty">아직 등록된 기록이 없습니다.</div>'}</div>${meRes.data?`<section class="ranking-my-card"><span>내 순위</span><b>${myRank?.toLocaleString()||'-'}위 · ${communityEsc(meRes.data.nickname)}</b><strong>${rankingValue(tab,meRes.data)}</strong></section>`:`<section class="ranking-my-card muted"><span>내 순위</span><b>아직 랭킹에 기록이 없습니다.</b><small>닉네임을 정하고 ‘내 기록 갱신’을 눌러 주세요.</small></section>`}`;
+}
+async function loadEndingRanking(silent=false){
+ const target=$('#rankingContent');if(!target)return;if(!silent)target.innerHTML='<div class="ranking-loading">엔딩 기록을 집계하는 중...</div>';
+ const [summaryRes,collectorRes,meRes]=await Promise.all([
+  communityDb.rpc('leaderboard_ending_summary'),
+  communityDb.from('leaderboard_profiles').select('user_id,nickname,ending_count,day,updated_at').order('ending_count',{ascending:false}).order('day',{ascending:true}).limit(100),
+  communityUserId?communityDb.from('leaderboard_profiles').select('user_id,nickname,ending_count,day,updated_at').eq('user_id',communityUserId).maybeSingle():Promise.resolve({data:null,error:null})
+ ]);
+ if(summaryRes.error)throw summaryRes.error;if(collectorRes.error)throw collectorRes.error;if(meRes.error)throw meRes.error;
+ let myRank=null;if(meRes.data){const countRes=await communityDb.from('leaderboard_profiles').select('*',{count:'exact',head:true}).gt('ending_count',Number(meRes.data.ending_count||0));if(countRes.error)throw countRes.error;myRank=Number(countRes.count||0)+1}
+ const rawSummary=summaryRes.data||[],collectors=collectorRes.data||[],summaryMap=new Map(rawSummary.map(r=>[r.ending_name,r])),allEndingNames=Object.keys(endingStories||{}),summary=allEndingNames.map(name=>summaryMap.get(name)||{ending_name:name,clear_count:0,fastest_day:null});
+ const endingCards=summary.map(r=>`<button class="ranking-ending-card" data-ranking-ending="${communityEsc(r.ending_name)}"><span>🏁</span><div><b>${communityEsc(r.ending_name)}</b><small>달성 ${Number(r.clear_count||0).toLocaleString()}명</small></div><strong>${r.fastest_day?`최단 ${Number(r.fastest_day).toLocaleString()}일`:'최단 기록 없음'}</strong></button>`).join('');
+ target.innerHTML=`<section class="ranking-note"><b>🏁 엔딩 랭킹</b><span>엔딩별 달성 인원과 최단 클리어 기록, 엔딩 수집 순위를 함께 보여 줍니다.</span><small>v178 이전에 얻은 엔딩은 달성 인원에는 포함되지만 정확한 클리어 일수는 기록되지 않을 수 있습니다.</small></section><section class="ranking-ending-summary"><h4>엔딩별 달성 현황</h4>${endingCards}</section><section class="ranking-collector"><h4>🏆 엔딩 수집 TOP 100</h4><div class="ranking-list">${collectors.length?collectors.map((r,i)=>`<article class="ranking-row ${i<3?'top-'+(i+1):''} ${r.user_id===communityUserId?'me':''}"><span class="ranking-place">${rankingMedal(i+1)}</span><div class="ranking-player"><b>${communityEsc(r.nickname)}</b><small>${Number(r.day||1).toLocaleString()}일차</small></div><strong>${Number(r.ending_count||0)}개</strong></article>`).join(''):'<div class="ranking-empty">아직 등록된 기록이 없습니다.</div>'}</div></section>${meRes.data?`<section class="ranking-my-card"><span>내 엔딩 수집 순위</span><b>${myRank?.toLocaleString()||'-'}위 · ${communityEsc(meRes.data.nickname)}</b><strong>${Number(meRes.data.ending_count||0)}개</strong></section>`:''}`;
+ $$('[data-ranking-ending]').forEach(b=>b.onclick=()=>openEndingRankingDetail(b.dataset.rankingEnding));
+}
+async function openEndingRankingDetail(name,silent=false){
+ rankingEndingDetailName=name;const target=$('#rankingContent');if(!target)return;if(!silent)target.innerHTML='<div class="ranking-loading">최단 클리어 기록을 불러오는 중...</div>';
+ try{const {data,error}=await communityDb.rpc('leaderboard_ending_top',{p_ending_name:name});if(error)throw error;const rows=data||[];target.innerHTML=`<section class="ranking-ending-detail"><button id="rankingEndingBack" class="community-back">← 엔딩 전체 현황</button><div class="ranking-note"><b>🏁 ${communityEsc(name)}</b><span>클리어 일수가 기록된 플레이어의 최단 순위입니다.</span></div><div class="ranking-list">${rows.length?rows.map((r,i)=>`<article class="ranking-row ${i<3?'top-'+(i+1):''}"><span class="ranking-place">${rankingMedal(i+1)}</span><div class="ranking-player"><b>${communityEsc(r.nickname)}</b><small>${rankingDate(r.achieved_at)}</small></div><strong>${Number(r.clear_day).toLocaleString()}일</strong></article>`).join(''):'<div class="ranking-empty">아직 정확한 클리어 일수가 기록된 플레이어가 없습니다.</div>'}</div></section>`;$('#rankingEndingBack').onclick=()=>{rankingEndingDetailName='';loadEndingRanking()}}catch(e){renderRankingError(e)}
+}
+async function loadRankingTab(silent=false){
+ if(rankingLoading||!rankingModalIsOpen())return;rankingLoading=true;try{await ensureCommunityReady();if(rankingActiveTab==='ending')await loadEndingRanking(silent);else await loadMetricRanking(rankingActiveTab,silent)}catch(e){renderRankingError(e)}finally{rankingLoading=false}
+}
+function cleanupRankingRealtime(){
+ if(rankingRealtimeTimer){clearTimeout(rankingRealtimeTimer);rankingRealtimeTimer=null}
+ if(rankingRealtimeChannel&&communityDb){try{communityDb.removeChannel(rankingRealtimeChannel)}catch{}}rankingRealtimeChannel=null
+}
+function queueRankingRealtimeRefresh(){
+ if(!rankingModalIsOpen())return;if(rankingRealtimeTimer)clearTimeout(rankingRealtimeTimer);rankingRealtimeTimer=setTimeout(()=>{rankingRealtimeTimer=null;if(rankingEndingDetailName)openEndingRankingDetail(rankingEndingDetailName,true);else loadRankingTab(true)},500)
+}
+function startRankingRealtime(){
+ cleanupRankingRealtime();if(!communityDb||!rankingModalIsOpen())return;
+ rankingRealtimeChannel=communityDb.channel(`ryu-ranking-live-${Math.random().toString(36).slice(2)}`).on('postgres_changes',{event:'*',schema:'public',table:'leaderboard_profiles'},queueRankingRealtimeRefresh).on('postgres_changes',{event:'*',schema:'public',table:'leaderboard_endings'},queueRankingRealtimeRefresh).subscribe()
+}
+async function openRanking(){
+ rankingEndingDetailName='';showModal('실시간 랭킹',rankingShellHtml(),'ranking');rankingBindShell();
+ try{await ensureCommunityReady();if(communityNickname()&&rankingSourceState())await submitRankingSnapshot({backfillEndings:true});if(!rankingModalIsOpen())return;await loadRankingTab();startRankingRealtime()}catch(e){renderRankingError(e)}
+}
 
 // v143: 2-player realtime Ryu Hyunsang quiz battle
 let onlineQuizRoomCode='';
@@ -4156,12 +4278,12 @@ async function leaveGostopRoom(callServer=true,goLobby=false,forfeit=false,finis
 $('#newGameBtn').onclick=()=>{forceAudioOn();setAudioScreenMode('title');const collected=loadMetaEndings();state=structuredClone(baseState);state.endings=collected;startPrologue()};
 $('#continueBtn').onclick=()=>{forceAudioOn();migrateLegacySave();const hasAny=!!readSave(AUTO_SAVE_KEY)||MANUAL_SAVE_KEYS.some(k=>!!readSave(k));if(!hasAny)return toast('저장된 게임이 없습니다.');openSaveManager('load')};
 $('#howBtn').onclick=()=>{forceAudioOn();openGameGuide()};
-$('#titleCommunityBtn').onclick=()=>{forceAudioOn();openCommunity()};
-$('#closeModal').onclick=()=>closeModal();$('#modal').addEventListener('cancel',e=>{if(window.matgoIsActive?.()){e.preventDefault();window.matgoRequestClose?.();return}if(memoryGameActive||blockingNoticeActive||instagramLiveActive){e.preventDefault();if(memoryGameActive)closeModal()}});$('#audioBtn').onclick=openAudioSettings;$('#menuBtn').onclick=()=>showModal('메뉴','<div class="card-list"><button id="menuCommunity" class="community-menu-button">커뮤니티</button><button id="gameGuideBtn" class="primary">게임 설명 · 진행 가이드</button><button id="manualSave">저장 / 불러오기</button><button id="backTitle">타이틀로 돌아가기</button></div>');
+$('#titleCommunityBtn').onclick=()=>{forceAudioOn();openCommunity()};$('#titleRankingBtn').onclick=()=>{forceAudioOn();openRanking()};
+$('#closeModal').onclick=()=>closeModal();$('#modal').addEventListener('cancel',e=>{if(window.matgoIsActive?.()){e.preventDefault();window.matgoRequestClose?.();return}if(memoryGameActive||blockingNoticeActive||instagramLiveActive){e.preventDefault();if(memoryGameActive)closeModal()}});$('#audioBtn').onclick=openAudioSettings;$('#menuBtn').onclick=()=>showModal('메뉴','<div class="card-list"><button id="menuCommunity" class="community-menu-button">커뮤니티</button><button id="menuRanking" class="ranking-menu-button">🏆 실시간 랭킹</button><button id="gameGuideBtn" class="primary">게임 설명 · 진행 가이드</button><button id="manualSave">저장 / 불러오기</button><button id="backTitle">타이틀로 돌아가기</button></div>');
 $('#modal').addEventListener('click',e=>{if(e.target===$('#modal'))closeModal()});
 $$('[data-phone]').forEach(b=>b.onclick=()=>openPhone(b.dataset.phone));
 $$('[data-tab]').forEach(b=>b.onclick=()=>{if(state.specialScene?.active)return toast('진행 중인 특별 이벤트를 먼저 마쳐 주세요.');const t=b.dataset.tab;$$('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));if(t==='band')showBand();if(t==='album')openSpecialAlbum();if(t==='shop')openShopHub();if(t==='ending'){const total=Object.keys(endingStories).length,head=`<div class="ending-collection-summary"><b>엔딩 컬렉션</b><strong>${state.endings.length} / ${total}</strong><small>총 ${total}개 엔딩</small></div>`;showModal('엔딩 컬렉션',head+(state.endings.length?`<div class="ending-collection-grid">${state.endings.map(x=>{const art=endingVisualFor(x);return `<button class="info-card ending-replay ending-collection-card" data-ending-replay="${x}">${art?`<img src="${art}" alt="${x} 미리보기">`:''}<span><b>${x}</b><small>엔딩 이미지와 이야기 다시 보기</small></span></button>`}).join('')}</div>`:'<div class="info-card">아직 해금된 엔딩이 없습니다.</div>'),'ending');$$('[data-ending-replay]').forEach(x=>x.onclick=()=>runEndingStory(x.dataset.endingReplay));}if(t==='online')openOnlineBattleHub();if(t==='story')showModal('스토리 기록',state.history.length?`<div class="card-list story-history-list">${[...state.history].reverse().map(x=>`<div class="info-card story-history-item">${x}</div>`).join('')}</div>`:'류현상의 이야기는 이제 시작입니다.','story')});
-document.addEventListener('click',e=>{if(e.target&&e.target.id==='menuCommunity'){openCommunity()}if(e.target&&e.target.id==='gameGuideBtn'){openGameGuide()}if(e.target&&e.target.id==='manualSave'){openSaveManager('all')}if(e.target&&e.target.id==='backTitle'){save(false);setChoiceLock(false);stopSpecialEventBgm(false);exitEndingMusic();$('#gameScreen').classList.remove('active');$('#titleScreen').classList.add('active');setAudioScreenMode('title',true);closeModal()}});
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='menuCommunity'){openCommunity()}if(e.target&&e.target.id==='menuRanking'){openRanking()}if(e.target&&e.target.id==='gameGuideBtn'){openGameGuide()}if(e.target&&e.target.id==='manualSave'){openSaveManager('all')}if(e.target&&e.target.id==='backTitle'){save(false);setChoiceLock(false);stopSpecialEventBgm(false);exitEndingMusic();$('#gameScreen').classList.remove('active');$('#titleScreen').classList.add('active');setAudioScreenMode('title',true);closeModal()}});
 
 document.addEventListener('click',e=>{
  if(!choiceLock)return;
@@ -4235,3 +4357,5 @@ if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addE
 
 // v111: stalker resolution requires all five safe choices; safety equals the number of safe decisions.
 // Stalker encounter count now advances only after the player actually chooses an option.
+
+// v178: title/menu realtime ranking with Supabase leaderboard profiles and ending records.
