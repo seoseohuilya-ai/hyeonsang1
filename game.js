@@ -2780,8 +2780,10 @@ function specialAlbumEntries(){
  return [...fixed,...extras,...drawerPhotos];
 }
 function specialAlbumImage(sceneKey){
- const map={day30Hair:'assets/images/special-day30-hair.jpg',day60Workout:'assets/images/special-day60-workout.jpg',day90Live:'assets/images/special-day90-live.jpg',day120Chat:'assets/images/special-day120-kakaotalk.jpg',day150Birthday:'assets/images/special-day150-birthday.jpg',day180Archive:'assets/images/special-day180-user.png',day210Demo:'assets/images/special-day210-user.png',day240Meme:'assets/images/special-day240-user.png',day300Promise:'assets/images/special-day300-user.png',day330Mother:'assets/images/special-day330-mother.png',day360Reflection:'assets/images/special-day360-reflection.png'};
- return map[sceneKey]||'assets/images/home-bg.jpg';
+ const map={day30Hair:'assets/images/special-day30-hair.jpg',day60Workout:'assets/images/special-day60-workout.jpg',day90Live:'assets/images/special-day90-live.jpg',day120Chat:'assets/images/special-day120-kakaotalk.jpg',day150Birthday:'assets/images/special-day150-birthday.jpg',day180Archive:'assets/images/special-day180-user.png',day210Demo:'assets/images/special-day210-user.png',day240Meme:'assets/images/special-day240-user.png',day300Promise:'assets/images/special-day300-user.png',day330Mother:'assets/images/special-day330-mother.png',day360Reflection:'assets/images/special-day360-reflection.png',day400Fanmeet:'assets/images/special-day400-fanmeet.png',day450ReturnSpring:'assets/images/special-day450-return-spring.png',day500SchoolFestival:'assets/images/special-day500-school-festival.png'};
+ // 추억 앨범 미리보기는 해당 특별 이벤트의 실제 장면 이미지를 우선 사용한다.
+ // 이후 새 특별 이벤트가 추가되어 앨범 전용 맵 등록을 빠뜨려도 자취방 이미지로 잘못 표시되지 않도록 공용 장면 맵을 보조로 사용한다.
+ return map[sceneKey]||specialSceneImageMap[sceneKey]||'assets/images/home-bg.jpg';
 }
 function openSpecialAlbum(){
  const entries=specialAlbumEntries();
