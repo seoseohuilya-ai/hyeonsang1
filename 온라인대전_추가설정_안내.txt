@@ -1,0 +1,36 @@
+류현상 키우기 v157 온라인 대전 설정
+
+현재 대전 종목
+- 게임 퀴즈 대전
+- 류현상 노래 맞추기 · 2~4인
+- 후라보노AI 1:1 맞고
+- 온라인 맞고 · 고스톱
+
+제거된 종목
+- 루미큐브 대전
+- 쿵쿵따 대전
+
+기존 v155/v156에서 노래 맞추기를 이미 설치했다면
+1. Supabase 프로젝트 > SQL Editor > New query
+2. SUPABASE_SONG_QUIZ_V157_UPDATE.sql 전체 복사
+3. 붙여넣고 Run
+
+노래 맞추기를 처음 설치한다면
+- SUPABASE_SONG_QUIZ_SETUP.sql 전체를 한 번 실행
+
+기존 기능용 SQL
+- SUPABASE_SETUP.sql : 커뮤니티
+- SUPABASE_QUIZ_SETUP.sql / SUPABASE_QUIZ_LOBBY_UPDATE.sql : 게임 퀴즈 대전
+- SUPABASE_GOSTOP_SETUP.sql + SUPABASE_GOSTOP_V151_UPDATE.sql : 온라인 맞고·고스톱
+
+류현상 노래 맞추기 v157 규칙
+- 2~4인
+- 10문제
+- 문제당 15초
+- 노래 제목을 문제 시작부터 공개
+- 가사 한 구절에서 한 단어만 ____ 처리
+- 빈칸에 들어갈 한 단어를 키보드로 직접 입력
+- 정답 100점 + 속도 보너스 최대 150점
+- 2인 1등 20,000원
+- 3인 1등 30,000원
+- 4인 1등 50,000원 / 2등 30,000원

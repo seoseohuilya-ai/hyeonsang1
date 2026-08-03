@@ -1,0 +1,23 @@
+류현상 키우기 v155 테스트 결과
+
+[PASS] game.js JavaScript 문법 검사
+[PASS] matgo.js JavaScript 문법 검사
+[PASS] service-worker.js JavaScript 문법 검사
+[PASS] 루미큐브 대전 버튼/클라이언트 코드 제거
+[PASS] SUPABASE_RUMMY_SETUP.sql 제거
+[PASS] 류현상 노래 맞추기 2/3/4인 방 선택
+[PASS] 노래 맞추기 15초 서버/클라이언트 제한
+[PASS] 직접 키보드 입력 방식
+[PASS] 띄어쓰기·문장부호 무시 정답 판정
+[PASS] 총 10문제, 사용자 제공 가사 기반 HARD 문제은행 151개
+[PASS] 2인 1등 20,000원
+[PASS] 3인 1등 30,000원
+[PASS] 4인 1등 50,000원 / 2등 30,000원
+[PASS] 후라보노AI 맞고: 1회 터치 선택 / 동일 패 2회 터치 제출
+[PASS] 온라인 맞고·고스톱: 1회 터치 선택 / 동일 패 2회 터치 제출
+[PASS] 패 내기 / 더미 뒤집기 / 패 가져가기 시각 효과
+[PASS] 기존 2인 맞고 / 3인 고스톱 / 판돈 / 채무 정산 코드 유지
+[PASS] PWA 캐시 v155 갱신
+
+주의: Supabase 서버에 새 노래 맞추기 RPC/테이블을 만들려면
+SUPABASE_SONG_QUIZ_SETUP.sql을 SQL Editor에서 1회 실행해야 합니다.

@@ -6,6 +6,7 @@ let audioMaster=null,bgmGain=null,sfxGain=null,bgmTimer=null,bgmStep=0;
 let specialEventBgm=null,specialEventBgmKey=null;
 let audioScreenMode='title';
 let choiceLock=false,endingMusicMode=false,endingMusicName='';
+let activeEndingSession=null; // {name, terminal}. terminal=true이면 엔딩 완료 전 게임으로 복귀 금지
 let customEndingBgm=null,customEndingBgmName='';
 let blockingNoticeActive=false;
 let instagramLiveActive=false;
@@ -492,7 +493,7 @@ function openSaveManager(mode='all'){
  showModal(mode==='load'?'저장 데이터 불러오기':'저장 / 불러오기',html);
  $$('[data-save-slot]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.saveSlot),key=MANUAL_SAVE_KEYS[i-1],existing=readSave(key);if(existing&&!confirm(`현재 진행 상황으로 저장 슬롯 ${i}을 덮어쓰시겠습니까?`))return;if(writeSave(key,true))openSaveManager(mode)});
  $$('[data-delete-slot]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.deleteSlot);if(!confirm(`저장 슬롯 ${i}을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`))return;const storage=getStorage();if(storage)storage.removeItem(MANUAL_SAVE_KEYS[i-1]);toast(`저장 슬롯 ${i}을 삭제했습니다.`);openSaveManager(mode)});
- $$('[data-load-key]').forEach(b=>b.onclick=()=>{const key=b.dataset.loadKey;if($('#gameScreen').classList.contains('active')&&!confirm('현재 진행 내용은 자동 저장되지만, 마지막 행동 이후 변경 내용이 있을 수 있습니다. 불러오시겠습니까?'))return;stopSpecialEventBgm(false);forceAudioOn();if(!load(key))return toast('저장 데이터를 불러오지 못했습니다.');setChoiceLock(false);exitEndingMusic();$('#titleScreen').classList.remove('active');$('#gameScreen').classList.add('active');setAudioScreenMode('game',true);closeModal();render();toast('저장 데이터를 불러왔습니다.')});
+ $$('[data-load-key]').forEach(b=>b.onclick=()=>{const key=b.dataset.loadKey;if($('#gameScreen').classList.contains('active')&&!confirm('현재 진행 내용은 자동 저장되지만, 마지막 행동 이후 변경 내용이 있을 수 있습니다. 불러오시겠습니까?'))return;stopSpecialEventBgm(false);forceAudioOn();if(!load(key))return toast('저장 데이터를 불러오지 못했습니다.');activeEndingSession=null;setChoiceLock(false);exitEndingMusic();$('#titleScreen').classList.remove('active');$('#gameScreen').classList.add('active');setAudioScreenMode('game',true);closeModal();render();toast('저장 데이터를 불러왔습니다.')});
 }
 function loadAudioSettings(){
  try{const raw=localStorage.getItem('ryuAudioSettings'),saved=raw?JSON.parse(raw):{};audioSettings={bgm:saved.bgm!==false,sfx:saved.sfx!==false}}
@@ -3025,18 +3026,57 @@ function getEndingChapters(name){
 function endingVisualFor(name){return endingArtworkMap[name]||''}
 function endingVisualHtml(name,title){const src=endingVisualFor(name);return src?`<div class="ending-visual-frame"><img src="${src}" alt="${name} 장면 이미지"></div>`:`<div class="ending-visual-frame"><div class="ending-visual-fallback">${title}</div></div>`}
 
+function finishTerminalEnding(name){
+ const collected=[...new Set([...(state.endings||[]),name].map(migrateEndingName))];
+ saveMetaEndings(collected);
+ const storage=getStorage();
+ if(storage){
+  // 최종 엔딩을 실제로 끝낸 뒤에는 자동 저장을 제거해 같은 플레이를 이어서 할 수 없게 한다.
+  storage.removeItem('ryuGame');
+  storage.removeItem(AUTO_SAVE_KEY);
+ }
+ activeEndingSession=null;
+ setChoiceLock(false);
+ stopSpecialEventBgm(false);
+ exitEndingMusic();
+ const modal=$('#modal');
+ if(modal){
+  modal.classList.remove('ending-focus-modal');
+  const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false;
+  if(modal.open)modal.close();
+ }
+ state=structuredClone(baseState);
+ state.endings=collected;
+ syncEndingCollection();
+ $('#gameScreen')?.classList.remove('active');
+ $('#titleScreen')?.classList.add('active');
+ setAudioScreenMode('title',true);
+ syncToastLayer();
+ toast(`${name}이 엔딩 컬렉션에 저장되었습니다. 게임이 종료되었습니다.`);
+}
 function runEndingStory(name,restartAfter=false){
  enterEndingMusic(name);
  setChoiceLock(false);
+ const terminal=!!restartAfter;
+ activeEndingSession={name,terminal};
  const chapters=getEndingChapters(name);
  let page=0;
  const draw=()=>{
   const [title,text]=chapters[page];
   showModal(name,`<div class="ending-story"><div class="ending-count">ENDING · ${page+1} / ${chapters.length}</div><div class="ending-scene">${endingVisualHtml(name,title)}<div class="ending-text-panel"><h3>${title}</h3><p>${String(text).replace(/\n/g,'<br>')}</p></div></div><div class="ending-nav"><button id="endingPrev" ${page===0?'disabled':''}>이전 장면</button><button id="endingNext" class="primary">${page===chapters.length-1?'엔딩을 마친다':'다음 장면'}</button></div></div>`,'ending');
-  $('#modal')?.classList.add('ending-focus-modal');
+  const modal=$('#modal');
+  modal?.classList.add('ending-focus-modal');
+  const closeButton=$('#closeModal');
+  if(closeButton)closeButton.hidden=terminal; // 최종 엔딩은 X로 빠져나갈 수 없다.
   const prev=$('#endingPrev'),next=$('#endingNext');
-  if(prev)prev.onclick=()=>{page--;draw()};
-  if(next)next.onclick=()=>{if(page<chapters.length-1){page++;draw()}else{closeModal();if(restartAfter){const collected=[...new Set([...(state.endings||[]),name])];saveMetaEndings(collected);const storage=getStorage();if(storage){storage.removeItem('ryuGame');storage.removeItem(AUTO_SAVE_KEY)}state=structuredClone(baseState);state.endings=collected;syncEndingCollection();toast(`${name}이 엔딩 컬렉션에 저장되었습니다. 새 이야기를 시작합니다.`);startPrologue()}else toast(`${name}의 이야기를 다시 읽었습니다.`)}};
+  if(prev)prev.onclick=()=>{if(page>0){page--;draw()}};
+  if(next)next.onclick=()=>{
+   if(page<chapters.length-1){page++;draw();return}
+   if(terminal){finishTerminalEnding(name);return}
+   activeEndingSession=null;
+   closeModal(true);
+   toast(`${name}의 이야기를 다시 읽었습니다.`);
+  };
  };
  draw();
 }
@@ -3119,7 +3159,7 @@ function showBlockingNotice(title,html,onConfirm){
  const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=true;
  const confirm=$('#blockingNoticeConfirm');if(confirm)confirm.onclick=()=>{blockingNoticeActive=false;if(closeButton)closeButton.hidden=false;closeModal(true);if(typeof onConfirm==='function')onConfirm()};
 }
-function closeModal(force=false){if(typeof cleanupRankingRealtime==='function')cleanupRankingRealtime();const modal=$('#modal');if(!force&&modal?.classList.contains('theme-matgo')&&window.matgoIsActive?.()){window.matgoRequestClose?.();return;}if(!force&&modal?.classList.contains('theme-online')&&gostopRoomCode){if(gostopLastStatus==='playing'&&!confirm('진행 중인 고스톱에서 나가면 게임에서 이탈합니다. 나갈까요?'))return;leaveGostopRoom(true,false,true);return}if(!force&&modal?.classList.contains('theme-online')&&songQuizRoomCode){if(songQuizLastStatus==='playing'&&!confirm('류현상 노래 맞추기 대전에서 나가면 현재 대전에서 이탈합니다. 나갈까요?'))return;leaveSongQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&teamQuizRoomCode){if(teamQuizLastSnapshot?.status==='playing'&&!confirm('2vs2 퀴즈 대전에서 나가면 현재 팀 대전에서 이탈합니다. 나갈까요?'))return;leaveTeamQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&onlineQuizRoomCode){leaveOnlineQuizRoom(true,false);return}if(instagramLiveActive&&!force)return;if(blockingNoticeActive&&!force)return;if(memoryGameActive&&!force){if(typeof activeTrainingAbort==='function'){activeTrainingAbort();return}endMiniGameUi()}if(force&&instagramLiveActive){instagramLiveActive=false;modal.classList.remove('instagram-live-dialog');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(force&&blockingNoticeActive){blockingNoticeActive=false;const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(!memoryGameActive)document.documentElement.classList.remove('minigame-active');modal.classList.remove('drawer-dialog');modal.classList.remove('ending-focus-modal');modal.classList.remove('matgo-fullscreen');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false;if(modal.open)modal.close();syncToastLayer();if(endingMusicMode||customEndingBgm)exitEndingMusic();if(deferredPostAdvance&&!cardRevealPending)finishDeferredPostAdvance()}
+function closeModal(force=false){if(typeof cleanupRankingRealtime==='function')cleanupRankingRealtime();const modal=$('#modal');if(!force&&activeEndingSession?.terminal&&modal?.classList.contains('ending-focus-modal')){toast('최종 엔딩이 진행 중입니다. 마지막 장면에서 ‘엔딩을 마친다’를 눌러 주세요.');return;}if(!force&&modal?.classList.contains('theme-matgo')&&window.matgoIsActive?.()){window.matgoRequestClose?.();return;}if(!force&&modal?.classList.contains('theme-online')&&gostopRoomCode){if(gostopLastStatus==='playing'&&!confirm('진행 중인 고스톱에서 나가면 게임에서 이탈합니다. 나갈까요?'))return;leaveGostopRoom(true,false,true);return}if(!force&&modal?.classList.contains('theme-online')&&songQuizRoomCode){if(songQuizLastStatus==='playing'&&!confirm('류현상 노래 맞추기 대전에서 나가면 현재 대전에서 이탈합니다. 나갈까요?'))return;leaveSongQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&teamQuizRoomCode){if(teamQuizLastSnapshot?.status==='playing'&&!confirm('2vs2 퀴즈 대전에서 나가면 현재 팀 대전에서 이탈합니다. 나갈까요?'))return;leaveTeamQuizRoom(true,false);return}if(!force&&modal?.classList.contains('theme-online')&&onlineQuizRoomCode){leaveOnlineQuizRoom(true,false);return}if(instagramLiveActive&&!force)return;if(blockingNoticeActive&&!force)return;if(memoryGameActive&&!force){if(typeof activeTrainingAbort==='function'){activeTrainingAbort();return}endMiniGameUi()}if(force&&instagramLiveActive){instagramLiveActive=false;modal.classList.remove('instagram-live-dialog');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(force&&blockingNoticeActive){blockingNoticeActive=false;const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false}if(!memoryGameActive)document.documentElement.classList.remove('minigame-active');modal.classList.remove('drawer-dialog');modal.classList.remove('ending-focus-modal');modal.classList.remove('matgo-fullscreen');const closeButton=$('#closeModal');if(closeButton)closeButton.hidden=false;if(modal.open)modal.close();if(activeEndingSession&&!activeEndingSession.terminal)activeEndingSession=null;syncToastLayer();if(endingMusicMode||customEndingBgm)exitEndingMusic();if(deferredPostAdvance&&!cardRevealPending)finishDeferredPostAdvance()}
 function getLocationDialoguePool(loc){
  const contextual=pool=>(pool||[]).filter(line=>{if(!state.manager.hired&&/후라보노/.test(line))return false;const m=state.band.members;if(!m.guitar&&/B군/.test(line))return false;if(!m.bass&&/L군/.test(line))return false;if(!m.piano&&/J군/.test(line))return false;if(!m.drums&&/R군/.test(line))return false;return true});
  if(loc!=='practice')return contextual(dialogues[loc]);
@@ -4271,15 +4311,15 @@ function renderGostopFinished(s,players){gostopSetWide(false);if(gostopPollTimer
 async function leaveGostopRoom(callServer=true,goLobby=false,forfeit=false,finished=false){const code=gostopRoomCode,s=gostopLastSnapshot,status=gostopLastStatus;if(forfeit&&status==='playing')gostopSettleForfeit(code,s);gostopRoomCode='';gostopLastStatus='';gostopLastSnapshot=null;gostopSelectedCard=null;saveGostopStoredRoom('');gostopClearTimers();gostopSetWide(false);if(callServer&&code&&communityDb){try{await communityDb.rpc('gostop_leave_room',{p_room_code:code})}catch{}}if(goLobby)return openGostopLobby();closeModal(true)}
 
 
-$('#newGameBtn').onclick=()=>{forceAudioOn();setAudioScreenMode('title');const collected=loadMetaEndings();state=structuredClone(baseState);state.endings=collected;startPrologue()};
+$('#newGameBtn').onclick=()=>{activeEndingSession=null;forceAudioOn();setAudioScreenMode('title');const collected=loadMetaEndings();state=structuredClone(baseState);state.endings=collected;startPrologue()};
 $('#continueBtn').onclick=()=>{forceAudioOn();migrateLegacySave();const hasAny=!!readSave(AUTO_SAVE_KEY)||MANUAL_SAVE_KEYS.some(k=>!!readSave(k));if(!hasAny)return toast('저장된 게임이 없습니다.');openSaveManager('load')};
 $('#howBtn').onclick=()=>{forceAudioOn();openGameGuide()};
 $('#titleCommunityBtn').onclick=()=>{forceAudioOn();openCommunity()};$('#titleRankingBtn').onclick=()=>{forceAudioOn();openRanking()};
-$('#closeModal').onclick=()=>closeModal();$('#modal').addEventListener('cancel',e=>{if(window.matgoIsActive?.()){e.preventDefault();window.matgoRequestClose?.();return}if(memoryGameActive||blockingNoticeActive||instagramLiveActive){e.preventDefault();if(memoryGameActive)closeModal()}});$('#audioBtn').onclick=openAudioSettings;$('#menuBtn').onclick=()=>showModal('메뉴','<div class="card-list"><button id="menuCommunity" class="community-menu-button">커뮤니티</button><button id="menuRanking" class="ranking-menu-button">🏆 실시간 랭킹</button><button id="gameGuideBtn" class="primary">게임 설명 · 진행 가이드</button><button id="manualSave">저장 / 불러오기</button><button id="backTitle">타이틀로 돌아가기</button></div>');
+$('#closeModal').onclick=()=>closeModal();$('#modal').addEventListener('cancel',e=>{if(activeEndingSession&&$('#modal')?.classList.contains('ending-focus-modal')){e.preventDefault();closeModal();return}if(window.matgoIsActive?.()){e.preventDefault();window.matgoRequestClose?.();return}if(memoryGameActive||blockingNoticeActive||instagramLiveActive){e.preventDefault();if(memoryGameActive)closeModal()}});$('#audioBtn').onclick=openAudioSettings;$('#menuBtn').onclick=()=>showModal('메뉴','<div class="card-list"><button id="menuCommunity" class="community-menu-button">커뮤니티</button><button id="menuRanking" class="ranking-menu-button">🏆 실시간 랭킹</button><button id="gameGuideBtn" class="primary">게임 설명 · 진행 가이드</button><button id="manualSave">저장 / 불러오기</button><button id="backTitle">타이틀로 돌아가기</button></div>');
 $('#modal').addEventListener('click',e=>{if(e.target===$('#modal'))closeModal()});
 $$('[data-phone]').forEach(b=>b.onclick=()=>openPhone(b.dataset.phone));
 $$('[data-tab]').forEach(b=>b.onclick=()=>{if(state.specialScene?.active)return toast('진행 중인 특별 이벤트를 먼저 마쳐 주세요.');const t=b.dataset.tab;$$('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));if(t==='band')showBand();if(t==='album')openSpecialAlbum();if(t==='shop')openShopHub();if(t==='ending')openEndingCollection();if(t==='online')openOnlineBattleHub();if(t==='story')showModal('스토리 기록',state.history.length?`<div class="card-list story-history-list">${[...state.history].reverse().map(x=>`<div class="info-card story-history-item">${x}</div>`).join('')}</div>`:'류현상의 이야기는 이제 시작입니다.','story')});
-document.addEventListener('click',e=>{if(e.target&&e.target.id==='menuCommunity'){openCommunity()}if(e.target&&e.target.id==='menuRanking'){openRanking()}if(e.target&&e.target.id==='gameGuideBtn'){openGameGuide()}if(e.target&&e.target.id==='manualSave'){openSaveManager('all')}if(e.target&&e.target.id==='backTitle'){save(false);setChoiceLock(false);stopSpecialEventBgm(false);exitEndingMusic();$('#gameScreen').classList.remove('active');$('#titleScreen').classList.add('active');setAudioScreenMode('title',true);closeModal()}});
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='menuCommunity'){openCommunity()}if(e.target&&e.target.id==='menuRanking'){openRanking()}if(e.target&&e.target.id==='gameGuideBtn'){openGameGuide()}if(e.target&&e.target.id==='manualSave'){openSaveManager('all')}if(e.target&&e.target.id==='backTitle'){activeEndingSession=null;save(false);setChoiceLock(false);stopSpecialEventBgm(false);exitEndingMusic();$('#gameScreen').classList.remove('active');$('#titleScreen').classList.add('active');setAudioScreenMode('title',true);closeModal()}});
 
 document.addEventListener('click',e=>{
  if(!choiceLock)return;

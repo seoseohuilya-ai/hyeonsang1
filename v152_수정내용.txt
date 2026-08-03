@@ -1,0 +1,16 @@
+류현상 키우기 v152 · 온라인 고스톱 캐시 호출 수정
+
+원인
+- v151 index.html의 game.js 쿼리 버전이 v149-matgo로 남아 있어 iPhone/PWA에서 예전 고스톱 JS가 재사용될 수 있었습니다.
+- 예전 코드는 gostop_create_room(p_max_players, p_nickname) 2개 인자를 호출하지만 v151 DB는 p_nickname, p_max_players, p_point_rate 3개 인자를 사용합니다.
+
+수정
+- index.html의 game.js를 v152-cache-fix로 변경
+- style.css / matgo.css / matgo.js 쿼리 버전도 v152로 통일
+- service-worker 캐시 이름 및 등록 URL v152로 갱신
+- 예전 2인자 함수 오류가 감지되면 캐시 문제라고 직접 안내
+- v151의 온라인 2인 맞고 / 3인 고스톱 / PNG 화투 / 판돈 / 게임 퀴즈 대전 / 후라보노AI 1:1 맞고 기능은 그대로 유지
+
+Supabase
+- 아직 실행하지 않았다면 SUPABASE_GOSTOP_V151_UPDATE.sql을 1회 실행
+- 이미 성공 실행했다면 다시 실행해도 되지만 필수는 아님

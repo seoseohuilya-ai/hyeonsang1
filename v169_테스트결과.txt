@@ -1,0 +1,28 @@
+류현상 키우기 v169 화투 전체 점검 결과
+
+{
+  "randomGames": 5000,
+  "hangs": 0,
+  "lastGoGuard": {
+    "active": false,
+    "finished": true
+  }
+}
+
+[PASS] game.js syntax already passed
+[PASS] matgo.js has round-end guard
+[PASS] no runtime fixed last-drawn label in matgo.js
+[PASS] online runtime fixed last-drawn label absent
+[PASS] CSS braces balanced
+[PASS] mobile one-screen board rule
+[PASS] mobile one-row dynamic hand
+[PASS] all 48 hwatu PNGs
+[PASS] hwatu back PNG
+[PASS] online last-turn guard uses deck exhaustion
+[PASS] online no premature hand-zero finish
+[PASS] online legacy GO safety
+[PASS] online nagari returns null winner
+[PASS] SQL dollar quotes balanced
+[PASS] AI random 5000 games zero hang
+
+※ 실제 Supabase 서버에 SQL을 실행한 다중 단말 실시간 테스트는 이 환경에서 수행할 수 없어, SQL 정적 검사와 클라이언트 로직 검사를 수행했습니다.

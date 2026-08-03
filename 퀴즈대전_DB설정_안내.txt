@@ -1,0 +1,11 @@
+류현상 키우기 v144 - 2인 실시간 퀴즈 대전 DB 설정
+
+1. Supabase Dashboard > SQL Editor > New query
+2. SUPABASE_QUIZ_SETUP.sql 파일 내용을 처음부터 끝까지 전부 복사
+3. 붙여넣기 후 Run and enable RLS 선택
+4. 마지막 결과에 "류현상 퀴즈 대전 DB 설정 완료! (v144)"가 나오면 완료
+5. GitHub에는 이 v144 ZIP의 게임 파일을 업로드/교체
+
+이 SQL은 기존 커뮤니티 posts/comments/likes를 삭제하지 않습니다.
+quiz_questions까지 RLS가 활성화되며, 정답은 브라우저가 직접 읽지 못합니다.
+또한 quiz_healthcheck()와 PostgREST 스키마 캐시 새로고침을 포함합니다.

@@ -1,0 +1,20 @@
+류현상 키우기 v157 정적 테스트 결과
+
+- game.js 문법 검사: PASS
+- matgo.js 문법 검사: PASS
+- service-worker.js 문법 검사: PASS
+- 온라인 대전 메뉴에서 쿵쿵따 버튼 제거: PASS
+- 쿵쿵따 JS 실행 로직 제거: PASS
+- SUPABASE_KUNGTTA_SETUP.sql 제거: PASS
+- 류현상 노래 맞추기 2~4인 유지: PASS
+- 한 판 10문제 유지: PASS
+- 문제당 15초 유지: PASS
+- 인원별 상금 유지: PASS
+- 노래 제목 문제 중 공개: PASS
+- 한 구절에서 한 단어 빈칸 문제은행: 124문제
+- 모든 문제에 ____ 1개 구성: PASS
+- 기존 v156 사진 보관함 7개 제목 유지: PASS
+- 기존 맞고/고스톱 기능 파일 유지: PASS
+
+주의: 실제 여러 기기의 동시 접속 및 Supabase RPC 실행은 정적 환경에서 실서버 테스트하지 못했습니다.
+기존 v155/v156 노래 맞추기 DB 사용자는 SUPABASE_SONG_QUIZ_V157_UPDATE.sql을 한 번 실행해야 합니다.

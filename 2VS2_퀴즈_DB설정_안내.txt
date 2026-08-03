@@ -1,0 +1,13 @@
+2 VS 2 류현상 O/X 퀴즈 · Supabase 설정
+========================================
+
+1. Supabase 프로젝트에 로그인
+2. 왼쪽 메뉴에서 SQL Editor 선택
+3. New query 선택
+4. ZIP 안의 SUPABASE_TEAM_QUIZ_V173_SETUP.sql 파일 내용을 처음부터 끝까지 복사
+5. SQL Editor에 붙여넣기
+6. Run 실행
+7. Success가 나오면 설정 완료
+
+이 SQL은 새 2vs2 퀴즈용 테이블/함수만 추가합니다.
+기존 커뮤니티, 1:1 퀴즈, 노래 맞추기, 맞고/고스톱 기능은 유지합니다.
