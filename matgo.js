@@ -1,4 +1,4 @@
-/* 류현상 키우기 v164 - 싱글 맞고(후라보노 AI)
+/* 류현상 키우기 v183 patch - 싱글 맞고(후라보노 AI)
  * 48장 전통 화투 기반 / 2인 10장씩 + 바닥 8장 + 더미 20장
  * 룰: 7점 GO/STOP, 총통, 흔들기, 폭탄, 뻑/자뻑/뻑먹기, 쪽, 따닥, 싹쓸이,
  *      홍단/청단/초단, 고도리, 피박/광박/멍따/고박, 3고 이상 배수, 나가리 다음판 2배.
@@ -19,8 +19,8 @@ const MATGO_KIND_BY_ID=[
  'bright','animal','pi','pi',
  'animalpi','ribbon','pi','pi',
  'animal','ribbon','pi','pi',
- 'bright','animal','ribbon','doublepi',
- 'bright','doublepi','pi','pi'
+ 'bright','doublepi','pi','pi',
+ 'bright','animal','ribbon','doublepi'
 ];
 const MATGO_KIND_TEXT={bright:'광',animal:'열끗',animalpi:'국진',ribbon:'띠',doublepi:'쌍피',pi:'피'};
 const MATGO_SPECIAL={red:[1,5,9],blue:[21,33,37],grass:[13,17,25],godori:[4,12,29]};
@@ -39,7 +39,7 @@ function matgoEsc(s){return typeof communityEsc==='function'?communityEsc(String
 function matgoScoreScenario(cards,gukjinAsPi=false){
  let bright=0,animal=0,ribbon=0,pi=0;const ids=new Set(cards);
  for(const id of cards){const k=matgoKind(id);if(k==='bright')bright++;else if(k==='animal')animal++;else if(k==='animalpi'){if(gukjinAsPi)pi+=2;else animal++}else if(k==='ribbon')ribbon++;else if(k==='doublepi')pi+=2;else pi++}
- let brightScore=0;if(bright===3)brightScore=ids.has(40)?2:3;else if(bright===4)brightScore=4;else if(bright>=5)brightScore=15;
+ let brightScore=0;if(bright===3)brightScore=ids.has(44)?2:3;else if(bright===4)brightScore=4;else if(bright>=5)brightScore=15;
  const animalBase=animal>=5?animal-4:0;const godori=MATGO_SPECIAL.godori.every(x=>ids.has(x))?5:0;
  const ribbonBase=ribbon>=5?ribbon-4:0;const red=MATGO_SPECIAL.red.every(x=>ids.has(x))?3:0;const blue=MATGO_SPECIAL.blue.every(x=>ids.has(x))?3:0;const grass=MATGO_SPECIAL.grass.every(x=>ids.has(x))?3:0;
  const piScore=pi>=10?pi-9:0;
