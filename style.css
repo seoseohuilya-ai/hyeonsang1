@@ -2165,9 +2165,56 @@ dialog.drawer-dialog .modal-body{max-height:78vh;padding:16px}
 .theme-ranking{width:min(820px,94vw);border-color:#806529;background:#0d1220}.theme-ranking .modal-head{background:linear-gradient(90deg,rgba(155,111,25,.22),rgba(25,35,58,.25));border-bottom-color:#594b2d}.theme-ranking .modal-body{max-height:74vh}
 .ranking-shell{display:grid;gap:14px}.ranking-hero{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px;border:1px solid #6d5523;border-radius:18px;background:linear-gradient(135deg,rgba(138,97,18,.24),rgba(18,28,48,.78))}.ranking-hero small{letter-spacing:.14em;color:#e7c66c;font-weight:800}.ranking-hero h3{margin:4px 0 6px;font-size:1.3rem}.ranking-hero p{margin:0;color:#c6cfdd;font-size:.9rem;line-height:1.5}.ranking-live-dot{white-space:nowrap;color:#75e99d;font-size:.8rem;font-weight:900;padding:8px 10px;border:1px solid rgba(117,233,157,.35);border-radius:999px;background:rgba(28,89,55,.22)}
 .ranking-profile{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 14px;background:#121b2b;border:1px solid #34445f;border-radius:14px}.ranking-profile>div:first-child{display:grid;gap:2px}.ranking-profile small{color:#8f9bb1}.ranking-profile b{font-size:1rem}.ranking-profile span{font-size:.78rem;color:#aeb9ca}.ranking-profile>div:last-child{display:flex;flex-wrap:wrap;gap:7px}.ranking-profile button{padding:.58rem .76rem;border-radius:10px;font-size:.82rem}.ranking-profile #rankingSyncBtn{background:linear-gradient(135deg,#8d6a1f,#b98725);border-color:#d0a449}
-.ranking-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.ranking-tabs button{padding:.7rem .4rem;border-radius:11px;font-size:.84rem;background:#121a29}.ranking-tabs button.active{background:linear-gradient(135deg,#805e1d,#b88828);border-color:#d4ab4a;color:#fff4cf;font-weight:850;box-shadow:inset 0 0 0 1px rgba(255,232,170,.12)}
+.ranking-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.ranking-tabs button{padding:.7rem .4rem;border-radius:11px;font-size:.84rem;background:#121a29}.ranking-tabs button.active{background:linear-gradient(135deg,#805e1d,#b88828);border-color:#d4ab4a;color:#fff4cf;font-weight:850;box-shadow:inset 0 0 0 1px rgba(255,232,170,.12)}
 .ranking-content{display:grid;gap:12px;min-height:180px}.ranking-loading,.ranking-empty{padding:28px;text-align:center;color:#aeb8c8;border:1px dashed #3f4c62;border-radius:14px;background:#101726}.ranking-note{display:grid;gap:4px;padding:12px 14px;border-radius:13px;background:#151d2d;border:1px solid #36465f}.ranking-note b{color:#ffe09a}.ranking-note span{font-size:.88rem;color:#d0d7e3}.ranking-note small{color:#8996aa}
 .ranking-list{display:grid;gap:7px}.ranking-row{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:62px;padding:10px 13px;border:1px solid #31415a;border-radius:13px;background:#121b2a}.ranking-row.top-1{border-color:#a98531;background:linear-gradient(90deg,rgba(154,112,23,.25),#151d2b 42%)}.ranking-row.top-2{border-color:#778397;background:linear-gradient(90deg,rgba(126,139,160,.18),#151d2b 42%)}.ranking-row.top-3{border-color:#875c3f;background:linear-gradient(90deg,rgba(150,88,47,.18),#151d2b 42%)}.ranking-row.me{box-shadow:inset 0 0 0 1px #67a2ff;border-color:#4b79b8}.ranking-place{font-size:1.1rem;text-align:center;font-weight:900;color:#d7deea}.ranking-player{display:grid;min-width:0}.ranking-player b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ranking-player small{color:#8997ad;font-size:.76rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ranking-row>strong{font-size:1rem;color:#fff0b2;white-space:nowrap}
 .ranking-my-card{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:13px 15px;border:1px solid #4c79b5;border-radius:14px;background:linear-gradient(135deg,rgba(43,88,143,.25),rgba(17,27,43,.9));position:sticky;bottom:-1px;z-index:2}.ranking-my-card>span{font-size:.78rem;color:#9fc7ff}.ranking-my-card b{font-size:.92rem}.ranking-my-card strong{color:#fff0b2}.ranking-my-card.muted{grid-template-columns:auto 1fr}.ranking-my-card.muted small{color:#929fb2}
 .ranking-ending-summary,.ranking-collector{display:grid;gap:8px}.ranking-ending-summary h4,.ranking-collector h4{margin:4px 2px 2px}.ranking-ending-card{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;background:#131c2b;border-color:#37475f;padding:11px 13px}.ranking-ending-card>span{font-size:1.15rem}.ranking-ending-card>div{display:grid}.ranking-ending-card small{color:#8996aa}.ranking-ending-card>strong{color:#ffd986;font-size:.84rem;white-space:nowrap}.ranking-ending-detail{display:grid;gap:10px}.ranking-error{text-align:center;padding:24px;border:1px solid #67434d;border-radius:16px;background:rgba(82,34,47,.22)}.ranking-error>div{font-size:2rem}.ranking-error h3{margin:8px 0}.ranking-error p{white-space:normal;line-height:1.55;color:#d8c7cc}
-@media(max-width:720px){.theme-ranking{width:96vw}.ranking-hero{align-items:flex-start}.ranking-hero p{font-size:.8rem}.ranking-profile{align-items:flex-start;flex-direction:column}.ranking-profile>div:last-child{width:100%}.ranking-profile>div:last-child button{flex:1}.ranking-tabs{grid-template-columns:repeat(5,minmax(76px,1fr));overflow-x:auto;padding-bottom:2px}.ranking-tabs button{font-size:.76rem;padding:.62rem .25rem}.ranking-row{grid-template-columns:38px minmax(0,1fr) auto;padding:9px 8px}.ranking-row>strong{font-size:.87rem}.ranking-player small{font-size:.69rem}.ranking-ending-card{grid-template-columns:30px minmax(0,1fr);}.ranking-ending-card>strong{grid-column:2}.ranking-my-card{grid-template-columns:1fr auto}.ranking-my-card>span{grid-column:1/-1}.theme-ranking .modal-body{padding:12px}}
+@media(max-width:720px){.theme-ranking{width:96vw}.ranking-hero{align-items:flex-start}.ranking-hero p{font-size:.8rem}.ranking-profile{align-items:flex-start;flex-direction:column}.ranking-profile>div:last-child{width:100%}.ranking-profile>div:last-child button{flex:1}.ranking-tabs{grid-template-columns:repeat(4,minmax(76px,1fr));overflow-x:auto;padding-bottom:2px}.ranking-tabs button{font-size:.76rem;padding:.62rem .25rem}.ranking-row{grid-template-columns:38px minmax(0,1fr) auto;padding:9px 8px}.ranking-row>strong{font-size:.87rem}.ranking-player small{font-size:.69rem}.ranking-ending-card{grid-template-columns:30px minmax(0,1fr);}.ranking-ending-card>strong{grid-column:2}.ranking-my-card{grid-template-columns:1fr auto}.ranking-my-card>span{grid-column:1/-1}.theme-ranking .modal-body{padding:12px}}
+
+
+/* === v179: spoiler-safe ending collection + one-screen Tetris === */
+.ending-collection-card.locked{cursor:pointer;position:relative;background:linear-gradient(145deg,#101623,#171a22)!important;border-color:#303846!important}
+.ending-collection-card.locked:hover{border-color:#465267!important}
+.ending-locked-image{position:relative;width:118px;height:88px;overflow:hidden;border-radius:11px;border:1px solid rgba(255,255,255,.10);background:#080b11}
+.ending-locked-image img{width:100%!important;height:100%!important;object-fit:cover!important;border:0!important;border-radius:0!important;box-shadow:none!important;filter:blur(13px) brightness(.28) saturate(.35);transform:scale(1.18)}
+.ending-locked-image i{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;font-size:1.45rem;text-shadow:0 3px 12px #000}
+.ending-locked-placeholder{width:118px;height:88px;display:grid;place-items:center;border-radius:11px;background:#080b11;font-size:1.45rem}
+.ending-collection-card.locked b{letter-spacing:.14em;color:#aab2bf}
+.ending-collection-card.locked small{color:#7f8998}
+
+#modal.theme-tetris{width:min(440px,96vw)!important;max-height:96dvh!important}
+#modal.theme-tetris .modal-head{padding:10px 14px}
+#modal.theme-tetris .modal-head h2{font-size:1.02rem}
+#modal.theme-tetris .modal-body{height:calc(96dvh - 54px);max-height:calc(96dvh - 54px)!important;overflow:hidden!important;padding:10px!important}
+#modal.theme-tetris .store-tetris-game{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto auto;gap:6px;align-items:center;justify-items:center}
+#modal.theme-tetris .mini-game-head{gap:6px;align-items:start}
+#modal.theme-tetris .mini-game-head b{font-size:.9rem;line-height:1.2}
+#modal.theme-tetris .mini-game-head small{font-size:.7rem;line-height:1.25}
+#modal.theme-tetris .mini-game-head>strong{font-size:1rem}
+#modal.theme-tetris .store-tetris-game canvas{width:auto!important;height:auto!important;max-width:min(78vw,300px)!important;max-height:100%!important;aspect-ratio:5/8;object-fit:contain;border-radius:10px}
+#modal.theme-tetris .store-tetris-info{gap:5px}
+#modal.theme-tetris .store-tetris-info span{padding:4px 8px;font-size:.76rem}
+#modal.theme-tetris .store-tetris-controls{width:min(100%,330px);gap:5px}
+#modal.theme-tetris .store-tetris-controls button{min-height:36px;padding:.45rem .3rem}
+#modal.theme-tetris #storeTetrisStart{width:min(100%,330px);min-height:38px;margin-top:0!important;padding:.55rem}
+#modal.theme-tetris .tetris-keyboard-hint{font-size:.65rem;color:var(--muted);line-height:1}
+@media(max-width:720px){
+ .ending-locked-image,.ending-locked-placeholder{width:96px;height:72px}
+ #modal.theme-tetris{width:98vw!important;max-height:98dvh!important}
+ #modal.theme-tetris .modal-body{height:calc(98dvh - 50px);max-height:calc(98dvh - 50px)!important;padding:7px!important}
+ #modal.theme-tetris .modal-head{padding:8px 11px}
+ #modal.theme-tetris .store-tetris-game{gap:4px}
+ #modal.theme-tetris .mini-game-head small{font-size:.64rem}
+ #modal.theme-tetris .store-tetris-controls button{min-height:34px}
+ #modal.theme-tetris .tetris-keyboard-hint{display:none}
+}
+@media(max-height:700px){
+ #modal.theme-tetris .modal-head{padding:6px 10px}
+ #modal.theme-tetris .modal-head h2{font-size:.9rem}
+ #modal.theme-tetris .modal-body{height:calc(98dvh - 43px);max-height:calc(98dvh - 43px)!important;padding:5px!important}
+ #modal.theme-tetris .mini-game-head small{display:none}
+ #modal.theme-tetris .store-tetris-controls button{min-height:30px;padding:.3rem}
+ #modal.theme-tetris #storeTetrisStart{min-height:32px;padding:.38rem}
+ #modal.theme-tetris .tetris-keyboard-hint{display:none}
+}
