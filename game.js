@@ -18,7 +18,7 @@ let audioSettings={bgm:true,sfx:true};
 const FIXED_MASTER_VOLUME=.72,REGULAR_BGM_VOLUME=.025,SPECIAL_EVENT_BGM_VOLUME=.020,ENDING_BGM_VOLUME=.012,SFX_GAIN_VOLUME=1.8;
 const BANKRUPTCY_CRITICAL_DEBT=500000,BANKRUPTCY_CRITICAL_DAYS=15,BANKRUPTCY_MAX_DAYS=30;
 const SPECIAL_EVENT_DEFAULT_BGM_ID='specialEventDefaultBgm';
-const specialEventBgmMap={};
+const specialEventBgmMap={iziViral:'emergencyRoomEventBgm',waitedMoreViral:'waitedMoreEventBgm'};
 const customEndingBgmMap={'파산 엔딩':'fatalEndingBgm','활동 중지 엔딩':'fatalEndingBgm'};
 const DEFAULT_ENDING_BGM_ID='springRainEndingBgm';
 const endingArtworkMap={
