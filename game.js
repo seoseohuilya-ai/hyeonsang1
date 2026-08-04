@@ -3862,8 +3862,11 @@ function scheduleRankingSync(force=false){
 // v179: 엔딩은 스포일러 방지를 위해 온라인 랭킹에 전송하지 않습니다.
 function scheduleRankingEndingRecord(){scheduleRankingSync(true)}
 function rankingRowHtml(row,index,tab){
- const rank=index+1,me=row.user_id===communityUserId,detail=tab==='total'?`보컬 ${row.vocal||0} · 작곡 ${row.compose||0} · 연기 ${row.acting||0} · 외모 ${row.looks||0} · 인지도 Lv.${row.fame_level||1}`:`${Number(row.day||1).toLocaleString()}일차 · ${rankingDate(row.updated_at)}`;
- return `<article class="ranking-row ${rank<=3?'top-'+rank:''} ${me?'me':''}"><span class="ranking-place">${rankingMedal(rank)}</span><div class="ranking-player"><b>${communityEsc(row.nickname||'익명')}</b><small>${detail}</small></div><strong>${rankingValue(tab,row)}</strong></article>`
+ const rank=index+1,me=row.user_id===communityUserId;
+ const detail=tab==='total'
+  ?`<span class="ranking-detail-line">보컬 ${row.vocal||0} · 작곡 ${row.compose||0} · 연기 ${row.acting||0}</span><span class="ranking-detail-line">외모 ${row.looks||0} · 인지도 Lv.${row.fame_level||1}</span>`
+  :`<span class="ranking-detail-line">${Number(row.day||1).toLocaleString()}일차 · ${rankingDate(row.updated_at)}</span>`;
+ return `<article class="ranking-row ${rank<=3?'top-'+rank:''} ${me?'me':''} ${tab==='total'?'ranking-row-total':''}"><span class="ranking-place">${rankingMedal(rank)}</span><div class="ranking-player"><b>${communityEsc(row.nickname||'익명')}</b><small>${detail}</small></div><strong>${rankingValue(tab,row)}</strong></article>`
 }
 async function loadMetricRanking(tab,silent=false){
  const cfg=RANKING_TABS.find(t=>t.id===tab)||RANKING_TABS[0],target=$('#rankingContent');if(!target)return;if(!silent)target.innerHTML='<div class="ranking-loading">순위를 집계하는 중...</div>';
