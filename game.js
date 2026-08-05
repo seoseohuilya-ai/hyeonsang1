@@ -1671,8 +1671,10 @@ function openShopHub(){showModal('상점',`<div class="shop-hub"><button id="ope
 function openSuspiciousShop(){
  if(debtBlocked('수상한 물건 구매'))return;
  const dietCount=Math.max(0,Number(state.items?.dietPill)||0),energizerCount=Math.max(0,Number(state.items?.energizer)||0);
- showModal('수상한 가게',`<div class="gear-balance"><span>현재 보유금</span><strong>${state.stats.money.toLocaleString()}원</strong><small>구매에는 시간이 소모되지 않으며, 구입한 물건은 아이템창에 보관됩니다.</small></div><div class="card-list"><div class="info-card mystery-shop-card"><header><b>다이어트 알약</b><span>100,000원</span></header><p>잘생겨질지도 모른다.</p><small>보유 ${dietCount}알</small><button id="buyDietPill" ${state.stats.money<100000?'disabled':''}>${state.stats.money<100000?'돈 부족':'구매'}</button></div><div class="info-card mystery-shop-card"><header><b>에너자이저</b><span>400,000원</span></header><p>먹으면 힘이 솟아날지도..</p><small>보유 ${energizerCount}개</small><button id="buyEnergizer" ${state.stats.money<400000?'disabled':''}>${state.stats.money<400000?'돈 부족':'구매'}</button></div></div>`);
- const d=$('#buyDietPill');if(d)d.onclick=buyDietPill;const e=$('#buyEnergizer');if(e)e.onclick=buyEnergizer
+ const mysteryOutfitAvailable=state.day>=400&&!state.ownedOutfits.includes(6);
+ const mysteryOutfitCard=mysteryOutfitAvailable?`<div class="info-card mystery-shop-card mystery-outfit-card"><header><b>???</b><span>${MYSTERY_OUTFIT_PRICE.toLocaleString()}원</span></header><p>수상한 상인이 판매하던 옷이다.</p><small>400일 이후 판매 · 구매 시 옷장에 추가</small><button id="buyMysteryOutfitShop" ${state.stats.money<MYSTERY_OUTFIT_PRICE?'disabled':''}>${state.stats.money<MYSTERY_OUTFIT_PRICE?'돈 부족':'구매'}</button></div>`:'';
+ showModal('수상한 가게',`<div class="gear-balance"><span>현재 보유금</span><strong>${state.stats.money.toLocaleString()}원</strong><small>구매에는 시간이 소모되지 않으며, 구입한 물건은 아이템창에 보관됩니다.</small></div><div class="card-list"><div class="info-card mystery-shop-card"><header><b>다이어트 알약</b><span>100,000원</span></header><p>잘생겨질지도 모른다.</p><small>보유 ${dietCount}알</small><button id="buyDietPill" ${state.stats.money<100000?'disabled':''}>${state.stats.money<100000?'돈 부족':'구매'}</button></div><div class="info-card mystery-shop-card"><header><b>에너자이저</b><span>400,000원</span></header><p>먹으면 힘이 솟아날지도..</p><small>보유 ${energizerCount}개</small><button id="buyEnergizer" ${state.stats.money<400000?'disabled':''}>${state.stats.money<400000?'돈 부족':'구매'}</button></div>${mysteryOutfitCard}</div>`);
+ const d=$('#buyDietPill');if(d)d.onclick=buyDietPill;const e=$('#buyEnergizer');if(e)e.onclick=buyEnergizer;const o=$('#buyMysteryOutfitShop');if(o)o.onclick=buyMysteryOutfitFromShop
 }
 function showMysteryPurchaseResult(title,body){
  save(false);render();showModal('구매 완료',`<div class="info-card"><b>${title}</b><p>${body}</p><button id="mysteryPurchaseConfirm" class="primary wide">확인</button></div>`);const button=$('#mysteryPurchaseConfirm');if(button)button.onclick=openSuspiciousShop
@@ -1684,6 +1686,15 @@ function buyDietPill(){
 function buyEnergizer(){
  if(state.stats.money<400000)return toast('에너자이저를 구매할 돈이 부족합니다.');
  stat('money',-400000);state.items.energizer=(state.items.energizer||0)+1;addHistory('⚡ 수상한 가게 · 에너자이저 1개 구매 · 아이템 보관함에 추가',`energizer-buy:${state.day}:${Date.now()}`);state.dialogue={name:'류현상',text:'에너자이저를 샀지만 바로 마시지는 않았다. 일단 아이템 보관함에 넣어 두었다.'};showMysteryPurchaseResult('에너자이저를 구입했습니다.',`아이템창에 에너자이저 1개가 추가되었습니다.<br>현재 보유: ${(state.items.energizer||0)}개`)
+}
+function buyMysteryOutfitFromShop(){
+ if(state.day<400)return toast('이 의상은 400일 이후부터 판매됩니다.');
+ if(state.ownedOutfits.includes(6))return toast('이미 보유한 의상입니다.');
+ if(state.stats.money<MYSTERY_OUTFIT_PRICE)return toast(`돈이 부족합니다. ${(MYSTERY_OUTFIT_PRICE-state.stats.money).toLocaleString()}원이 더 필요합니다.`);
+ const before=snapshotStats();stat('money',-MYSTERY_OUTFIT_PRICE);stat('fame',1000);state.ownedOutfits.push(6);state.specialEvents.mysteriousMerchantPurchased=true;
+ addHistory('🕯 수상한 가게 · 44,444,444원을 지불하고 이름 없는 의상 「???」을 구매했다. 인지도가 10레벨 상승했다.','shop:mysterious-outfit');
+ playSfx('success');state.dialogue={name:'류현상',text:'수상한 상인이 판매하던 「???」 의상을 수상한 가게에서 구입했다. 옷장에 새 의상이 추가되었다.'};
+ const changes=describeStatChanges(before);save(false);render();showModal('구매 완료',`<div class="info-card mystery-outfit-card"><b>「???」 의상을 구입했습니다.</b><p>수상한 상인이 판매하던 옷이다.</p><p>옷장에 추가되었습니다. 착용하면 외모가 최대치 100이 됩니다.</p>${changes?`<small>${changes}</small>`:''}<button id="mysteryOutfitShopConfirm" class="primary wide">확인</button></div>`);const confirm=$('#mysteryOutfitShopConfirm');if(confirm)confirm.onclick=openSuspiciousShop
 }
 function applyEnergizerDose(returnTarget='items'){
  state.effects.energizerConsecutiveCount=1;state.effects.energizerOverdose=false;state.effects.energizerUntilDay=state.day+6;
