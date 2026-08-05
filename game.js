@@ -57,7 +57,7 @@ const actions={
   ['명상','스트레스 -5 · 하루 2회 · 비용·시간 미소모','meditate'],
   ['서랍','사진 퍼즐 7장·일기 50편 수집 · 시간·능력치 변화 없음','drawer'],
   ['식사','체력 +12~27 · 하루 2회 · 15% 확률로 요리 타이쿤 · 집 등급마다 비용 2배 · 시간 미소모','meal'],
-  ['옷장','의상 변경 · 헤어 스타일 관리 7일마다 1회 · 체력 -4·돈 -500,000원·외모 +2','wardrobe'],
+  ['옷장','의상 변경 · 헤어 스타일 관리 15일마다 1회 · 체력 -4·돈 -500,000원·외모 +1','wardrobe'],
   ['이사','돈 -1,000만~1억원 · 집 등급 상승 · 시간 +1','moveHome'],
   ['가계부·채무','채무 상환 시 보유금 감소 · 시간 미소모','finance'],
   ['디지몬 카드 보관함','보유 카드 확인·등급별 판매 · 시간 미소모','digimonInventory']
@@ -456,13 +456,14 @@ function normalizeState(){
  state.endings=[...new Set((state.endings||[]).map(migrateEndingName))];
  if(state.pendingEnding?.name)state.pendingEnding.name=migrateEndingName(state.pendingEnding.name);
  if(state.terminalEnding?.name)state.terminalEnding={name:migrateEndingName(state.terminalEnding.name)};else state.terminalEnding=null;
- // v192: 구버전에서 최종 엔딩 도중 새로고침/X 우회로 살아남은 저장은 다시 해당 엔딩으로 복귀시킨다.
- if(!state.terminalEnding){
-  const legacyEndingLine=[...(state.history||[])].reverse().find(line=>String(line).includes('🏁 엔딩 해금 · '));
-  const legacyEndingName=legacyEndingLine?migrateEndingName(String(legacyEndingLine).split('🏁 엔딩 해금 · ')[1]?.trim()||''):'';
-  if(legacyEndingName&&endingStories[legacyEndingName])state.terminalEnding={name:legacyEndingName};
- }
- if(!state.terminalEnding&&(state.minigames?.matgoRiskCount||0)>=15)state.terminalEnding={name:'도박꾼 엔딩'};
+ // v194: 과거의 '엔딩 해금' 기록만으로 현재 세이브를 강제 엔딩으로 판단하지 않는다.
+ // v192~v193에서 잘못 생성된 terminalEnding은 v194 증표가 없으면 폐기한다.
+ // 단, 도박 15회는 현재 상태만으로 확정 가능한 강제 엔딩이라 유지한다.
+ const legacyTerminal=state.terminalEnding;
+ const trustedTerminal=legacyTerminal&&legacyTerminal.proof==='v194'&&endingStories[legacyTerminal.name];
+ if(trustedTerminal)state.terminalEnding={name:migrateEndingName(legacyTerminal.name),proof:'v194'};
+ else state.terminalEnding=null;
+ if((state.minigames?.matgoRiskCount||0)>=15)state.terminalEnding={name:'도박꾼 엔딩',proof:'v194'};
  if(state.endingPrompted['가수 엔딩']){state.endingPrompted['worldstar:v100']=true;delete state.endingPrompted['가수 엔딩'];}if(state.endingPrompted.year){state.endingPrompted['year:1']=true;delete state.endingPrompted.year;}
  // v113 엔딩 주기 마이그레이션: 365일차부터 시작해 이후 100일마다 선택한다.
  const legacyEndingKeys=Object.keys(state.endingPrompted).filter(key=>key.startsWith('year-v100:')||key.startsWith('year-v112:')||key==='year:1'||key==='worldstar:v100'||key==='worldstar:v112');
@@ -498,28 +499,46 @@ function normalizeState(){
  delete state.romance;
  syncEndingCollection();
 }
-const SAVE_VERSION='1.6';
+const SAVE_VERSION='1.8';
 const AUTO_SAVE_KEY='ryuGameAuto';
+const RECOVERY_SAVE_KEY='ryuGameRecovery';
+const EMERGENCY_SAVE_KEY='ryuGameEmergency';
 const MANUAL_SAVE_KEYS=['ryuGameSlot1','ryuGameSlot2','ryuGameSlot3'];
 function makeSaveRecord(){return {version:SAVE_VERSION,savedAt:new Date().toISOString(),state:JSON.parse(JSON.stringify(state))}}
 function parseSaveRecord(raw){if(!raw)return null;try{const data=JSON.parse(raw);if(data&&data.state&&typeof data.state==='object')return data;if(data&&typeof data==='object')return {version:'legacy',savedAt:null,state:data};return null}catch(err){console.warn('저장 데이터 해석 실패',err);return null}}
+function backupAutoSave(reason='진행 보호 백업'){
+ const storage=getStorage();if(!storage)return false;
+ const raw=storage.getItem(AUTO_SAVE_KEY);if(!raw||!parseSaveRecord(raw))return false;
+ try{const record=JSON.parse(raw);record.recoveryReason=reason;record.recoverySavedAt=new Date().toISOString();storage.setItem(RECOVERY_SAVE_KEY,JSON.stringify(record));return true}catch(err){console.warn('복구용 백업 생성 실패',err);return false}
+}
+function backupEmergencySave(reason='긴급 진행 보존'){
+ const storage=getStorage();if(!storage)return false;
+ const raw=storage.getItem(AUTO_SAVE_KEY),record=parseSaveRecord(raw);if(!raw||!record)return false;
+ try{const copy=JSON.parse(raw);copy.recoveryReason=reason;copy.recoverySavedAt=new Date().toISOString();storage.setItem(EMERGENCY_SAVE_KEY,JSON.stringify(copy));return true}catch(err){console.warn('긴급 백업 생성 실패',err);return false}
+}
 function migrateLegacySave(){const storage=getStorage();if(!storage||storage.getItem(AUTO_SAVE_KEY))return;const legacy=storage.getItem('ryuGame');if(!legacy)return;const record=parseSaveRecord(legacy);if(!record)return;try{storage.setItem(AUTO_SAVE_KEY,JSON.stringify({...record,version:record.version==='legacy'?'0.9':record.version,savedAt:record.savedAt||new Date().toISOString()}));storage.removeItem('ryuGame')}catch(err){console.warn('구버전 저장 이전 실패',err)}}
 function readSave(key){const storage=getStorage();return storage?parseSaveRecord(storage.getItem(key)):null}
-function writeSave(key,show=true){const storage=getStorage();if(!storage){if(show)toast('이 브라우저에서는 저장 기능을 사용할 수 없습니다.');return false}try{storage.setItem(key,JSON.stringify(makeSaveRecord()));if(typeof scheduleRankingSync==='function')scheduleRankingSync();if(show){toast(key===AUTO_SAVE_KEY?'자동 저장되었습니다.':'저장되었습니다.');playSfx('save')}return true}catch(err){console.warn('게임 저장 실패',err);if(show)toast('저장 공간이 부족하거나 차단되어 있습니다.');return false}}
+function writeSave(key,show=true){const storage=getStorage();if(!storage){if(show)toast('이 브라우저에서는 저장 기능을 사용할 수 없습니다.');return false}try{
+ if(key===AUTO_SAVE_KEY){const previous=parseSaveRecord(storage.getItem(AUTO_SAVE_KEY));const prevDay=Math.max(1,Number(previous?.state?.day)||1),nextDay=Math.max(1,Number(state?.day)||1);if(previous&&prevDay>=5&&nextDay<=prevDay-3)backupAutoSave(`자동저장 진행일 감소 보호 · ${prevDay}일 → ${nextDay}일`)}
+ storage.setItem(key,JSON.stringify(makeSaveRecord()));if(typeof scheduleRankingSync==='function')scheduleRankingSync();if(show){toast(key===AUTO_SAVE_KEY?'자동 저장되었습니다.':'저장되었습니다.');playSfx('save')}return true}catch(err){console.warn('게임 저장 실패',err);if(show)toast('저장 공간이 부족하거나 차단되어 있습니다.');return false}}
 function applySaveRecord(record){if(!record?.state)return false;try{state=deepMerge(baseState,record.state);normalizeState();return true}catch(err){console.warn('저장 데이터 복구 실패',err);return false}}
 function load(key=AUTO_SAVE_KEY){migrateLegacySave();return applySaveRecord(readSave(key))}
 function save(show=true){return writeSave(AUTO_SAVE_KEY,show)}
 function formatSaveTime(iso){if(!iso)return '저장 시각 정보 없음';const d=new Date(iso);if(Number.isNaN(d.getTime()))return '저장 시각 정보 없음';return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} 저장`}
 function saveLocationName(snapshot){return locations[snapshot.location]?.name||snapshot.location||'알 수 없는 장소'}
 function saveCardHtml(record,label,index,isAuto=false){if(!record)return `<section class="save-slot empty"><div class="save-slot-head"><b>${label}</b><span class="save-badge">빈 슬롯</span></div><p>아직 저장된 진행 상황이 없습니다.</p>${isAuto?'':`<button class="primary wide" data-save-slot="${index}">저장하기</button>`}</section>`;const s=record.state||{};const stats=s.stats||{};return `<section class="save-slot"><div class="save-slot-head"><b>${label}</b><span class="save-badge">${isAuto?'AUTO':'SLOT '+index}</span></div><p class="save-summary"><strong>${Number(s.day||1).toLocaleString()}일째 · ${saveLocationName(s)}</strong><br>인지도 ${Number(stats.fame||0).toLocaleString()} · 팬 ${Number(stats.fans||0).toLocaleString()}명<br>보유금 ${Number(stats.money||0).toLocaleString()}원${Number(s.economy?.debt||0)>0?` · 채무 ${Number(s.economy.debt).toLocaleString()}원`:''}</p><small>${formatSaveTime(record.savedAt)} · v${record.version||'?'}</small><div class="save-slot-actions"><button class="primary" data-load-key="${isAuto?AUTO_SAVE_KEY:MANUAL_SAVE_KEYS[index-1]}">불러오기</button>${isAuto?'':`<button data-save-slot="${index}">덮어쓰기</button><button class="danger" data-delete-slot="${index}">삭제</button>`}</div></section>`}
+function recoverySaveCardHtml(record){if(!record)return '';const s=record.state||{},stats=s.stats||{};return `<section class="save-slot recovery-save"><div class="save-slot-head"><b>🛟 복구용 백업</b><span class="save-badge">RECOVERY</span></div><p class="save-summary"><strong>${Number(s.day||1).toLocaleString()}일째 · ${saveLocationName(s)}</strong><br>인지도 ${Number(stats.fame||0).toLocaleString()} · 팬 ${Number(stats.fans||0).toLocaleString()}명<br>보유금 ${Number(stats.money||0).toLocaleString()}원</p><small>${formatSaveTime(record.savedAt)}${record.recoveryReason?` · ${record.recoveryReason}`:''}</small><div class="save-slot-actions"><button class="primary" data-load-key="${RECOVERY_SAVE_KEY}">복구하기</button><button class="danger" data-delete-recovery="1">백업 삭제</button></div></section>`}
+function emergencySaveCardHtml(record){if(!record)return '';const s=record.state||{},stats=s.stats||{};return `<section class="save-slot recovery-save"><div class="save-slot-head"><b>🚑 엔딩 직전 긴급 백업</b><span class="save-badge">EMERGENCY</span></div><p class="save-summary"><strong>${Number(s.day||1).toLocaleString()}일째 · ${saveLocationName(s)}</strong><br>인지도 ${Number(stats.fame||0).toLocaleString()} · 팬 ${Number(stats.fans||0).toLocaleString()}명<br>보유금 ${Number(stats.money||0).toLocaleString()}원</p><small>${formatSaveTime(record.savedAt)}${record.recoveryReason?` · ${record.recoveryReason}`:''}</small><div class="save-slot-actions"><button class="primary" data-load-key="${EMERGENCY_SAVE_KEY}">긴급 복구</button><button class="danger" data-delete-emergency="1">백업 삭제</button></div></section>`}
 function openSaveManager(mode='all'){
  migrateLegacySave();
- const auto=readSave(AUTO_SAVE_KEY),slots=MANUAL_SAVE_KEYS.map(readSave);
- const html=`<div class="save-manager">${mode!=='manual'?saveCardHtml(auto,'최근 자동 저장',0,true):''}<div class="save-slots">${slots.map((r,i)=>saveCardHtml(r,`저장 슬롯 ${i+1}`,i+1,false)).join('')}</div><p class="save-help">자동 저장은 이동·행동·날짜 변경 때 갱신됩니다. 수동 슬롯은 서로 독립적으로 보관됩니다.</p></div>`;
+ const auto=readSave(AUTO_SAVE_KEY),recovery=readSave(RECOVERY_SAVE_KEY),emergency=readSave(EMERGENCY_SAVE_KEY),slots=MANUAL_SAVE_KEYS.map(readSave);
+ const html=`<div class="save-manager">${mode!=='manual'?saveCardHtml(auto,'최근 자동 저장',0,true):''}${recoverySaveCardHtml(recovery)}${emergencySaveCardHtml(emergency)}<div class="save-slots">${slots.map((r,i)=>saveCardHtml(r,`저장 슬롯 ${i+1}`,i+1,false)).join('')}</div><p class="save-help">자동 저장은 이동·행동·날짜 변경 때 갱신됩니다. 새 게임을 시작하거나 진행일이 갑자기 뒤로 돌아갈 때 기존 자동저장을 복구용 백업으로 한 번 더 보관합니다. 수동 슬롯은 서로 독립적으로 보관됩니다. 최종 엔딩 직전에는 별도의 긴급 백업도 자동 생성됩니다.</p></div>`;
  showModal(mode==='load'?'저장 데이터 불러오기':'저장 / 불러오기',html);
  $$('[data-save-slot]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.saveSlot),key=MANUAL_SAVE_KEYS[i-1],existing=readSave(key);if(existing&&!confirm(`현재 진행 상황으로 저장 슬롯 ${i}을 덮어쓰시겠습니까?`))return;if(writeSave(key,true))openSaveManager(mode)});
  $$('[data-delete-slot]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.deleteSlot);if(!confirm(`저장 슬롯 ${i}을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`))return;const storage=getStorage();if(storage)storage.removeItem(MANUAL_SAVE_KEYS[i-1]);toast(`저장 슬롯 ${i}을 삭제했습니다.`);openSaveManager(mode)});
- $$('[data-load-key]').forEach(b=>b.onclick=()=>{const key=b.dataset.loadKey;if($('#gameScreen').classList.contains('active')&&!confirm('현재 진행 내용은 자동 저장되지만, 마지막 행동 이후 변경 내용이 있을 수 있습니다. 불러오시겠습니까?'))return;stopSpecialEventBgm(false);forceAudioOn();if(!load(key))return toast('저장 데이터를 불러오지 못했습니다.');activeEndingSession=null;setChoiceLock(false);exitEndingMusic();$('#titleScreen').classList.remove('active');$('#gameScreen').classList.add('active');setAudioScreenMode('game',true);closeModal();render();if(!resumePersistentBlockingState())toast('저장 데이터를 불러왔습니다.')});
+ $$('[data-delete-recovery]').forEach(b=>b.onclick=()=>{if(!confirm('복구용 백업을 삭제하시겠습니까?'))return;const storage=getStorage();if(storage)storage.removeItem(RECOVERY_SAVE_KEY);toast('복구용 백업을 삭제했습니다.');openSaveManager(mode)});
+ $$('[data-delete-emergency]').forEach(b=>b.onclick=()=>{if(!confirm('엔딩 직전 긴급 백업을 삭제하시겠습니까?'))return;const storage=getStorage();if(storage)storage.removeItem(EMERGENCY_SAVE_KEY);toast('긴급 백업을 삭제했습니다.');openSaveManager(mode)});
+ $$('[data-load-key]').forEach(b=>b.onclick=()=>{const key=b.dataset.loadKey;if($('#gameScreen').classList.contains('active')&&!confirm('현재 진행 내용은 자동 저장되지만, 마지막 행동 이후 변경 내용이 있을 수 있습니다. 불러오시겠습니까?'))return;stopSpecialEventBgm(false);forceAudioOn();if(!load(key))return toast('저장 데이터를 불러오지 못했습니다.');activeEndingSession=null;setChoiceLock(false);exitEndingMusic();$('#titleScreen').classList.remove('active');$('#gameScreen').classList.add('active');setAudioScreenMode('game',true);closeModal();render();if(key===RECOVERY_SAVE_KEY||key===EMERGENCY_SAVE_KEY)save(false);if(!resumePersistentBlockingState())toast(key===RECOVERY_SAVE_KEY?'복구용 백업을 불러왔습니다.':key===EMERGENCY_SAVE_KEY?'엔딩 직전 긴급 백업을 불러왔습니다.':'저장 데이터를 불러왔습니다.')});
 }
 function loadAudioSettings(){
  try{const raw=localStorage.getItem('ryuAudioSettings'),saved=raw?JSON.parse(raw):{};audioSettings={bgm:saved.bgm!==false,sfx:saved.sfx!==false}}
@@ -1010,7 +1029,7 @@ function applyStyleDecay(){
 function styleCareCooldownRemaining(){
  const last=Number(state.dailyUse?.styleCareDay??-99);
  if(last<0)return 0;
- return Math.max(0,7-(state.day-last))
+ return Math.max(0,15-(state.day-last))
 }
 function dailyTick(allowRandom=true){applyDailyPracticePenalty();rollWeather();stat('hp',8);stat('stress',-4);state.items.bakcasUsedToday=0;state.items.mealsToday=0;state.items.bakcasBoughtToday=0;state.items.snacksBoughtToday=0;state.storeDaily.buskingDay=state.day;state.storeDaily.buskingCount=0;if(state.economy.lastWorkDay!==state.day-1)state.economy.workStreak=0;applyStyleDecay();updateCardCollectorQualification();if(state.day%30===0)chargeMonthlyUpkeep();return allowRandom?randomEvent():false}
 function randomEvent(){
@@ -1640,7 +1659,7 @@ function useStrongDietPill(){
  const hpCost=effectiveHpCost(20);if(state.stats.hp<hpCost)return toast(`체력이 부족합니다. 체력 ${hpCost}이 필요합니다.`);
  const before=snapshotStats();state.items.strongDietPill--;costHp(20);stat('stress',4);
  const roll=Math.random();let lookChange=0;
- if(roll<.02)lookChange=-2;else if(roll<.32)lookChange=2;
+ if(roll<.02)lookChange=-2;else if(roll<.04)lookChange=2;
  if(lookChange)stat('looks',lookChange);
  const message=lookChange<0?'강한 부작용이 나타나 외모가 2 감소했다.':lookChange>0?'약효가 강하게 나타나 외모가 2 증가했다.':'이번에는 눈에 띄는 변화가 없었다.';
  addHistory(`💊 강력한 다이어트알약 복용 · ${message}`,`strong-diet:${state.day}:${Date.now()}`);
@@ -1680,11 +1699,11 @@ function useDietPill(amount=1){
  if(owned<amount)return toast(`다이어트 알약이 ${amount}알 필요합니다.`);
  if(state.stats.hp<actualHpCost)return toast(`체력이 부족합니다. ${amount}알 연속 복용에는 체력 ${actualHpCost}이 필요합니다.`);
  const before=snapshotStats();state.items.dietPill-=amount;costHp(baseHpCost);stat('stress',2*amount);
- let negative=0,positive=0;const negativeChance=amount===10?.015:.01,positiveChance=.15;
- for(let i=0;i<amount;i++){const roll=Math.random();if(roll<negativeChance)negative++;else if(roll<negativeChance+positiveChance)positive++}
+ let negative=0,positive=0;const negativeChance=amount===10?.015:.01;
+ for(let i=0;i<amount;i++){const roll=Math.random();if(roll<negativeChance)negative++;else if(roll<negativeChance+.01)positive++}
  const lookChange=positive-negative;if(lookChange)stat('looks',lookChange);
  let message='아무런 효과가 없었다.';if(lookChange<0)message=`부작용이 나타나 외모가 ${Math.abs(lookChange)} 감소했다.`;else if(lookChange>0)message=`조금 효과를 보여 외모가 ${lookChange} 증가했다.`;else if(negative&&positive)message='효과와 부작용이 동시에 나타나 외모 변화는 없었다.';
- const changes=describeStatChanges(before);addHistory(`💊 다이어트 알약 ${amount}알 ${amount===10?'연속 ':''}복용 · ${message}`,`diet-pill-use:${state.day}:${amount}:${Date.now()}`);state.dialogue={name:'류현상',text:`다이어트 알약을 ${amount}알${amount===10?' 연속으로':''} 삼킨 뒤 한동안 거울을 바라봤다. ${message}`};save(false);render();showModal('다이어트 알약 결과',`<div class="info-card"><b>${message}</b><p>${changes||'수치 변화 없음'}</p><small>외모 증가 성공 확률은 알약 1개당 15%입니다.${amount===10?' 10알 연속 복용 시 외모 감소 부작용 확률만 각 알약당 1%에서 1.5%로 증가합니다.':' 외모 감소 부작용 확률은 1%입니다.'}</small><button id="dietPillConfirm" class="primary wide">확인</button></div>`);const button=$('#dietPillConfirm');if(button)button.onclick=openItemMenu
+ const changes=describeStatChanges(before);addHistory(`💊 다이어트 알약 ${amount}알 ${amount===10?'연속 ':''}복용 · ${message}`,`diet-pill-use:${state.day}:${amount}:${Date.now()}`);state.dialogue={name:'류현상',text:`다이어트 알약을 ${amount}알${amount===10?' 연속으로':''} 삼킨 뒤 한동안 거울을 바라봤다. ${message}`};save(false);render();showModal('다이어트 알약 결과',`<div class="info-card"><b>${message}</b><p>${changes||'수치 변화 없음'}</p>${amount===10?'<small>10알 연속 복용은 한 알씩 먹을 때보다 각 알약의 외모 감소 부작용 확률이 1%에서 1.5%로 소폭 증가합니다.</small>':''}<button id="dietPillConfirm" class="primary wide">확인</button></div>`);const button=$('#dietPillConfirm');if(button)button.onclick=openItemMenu
 }
 function bankruptcyStatusText(){
  const debt=Math.max(0,Number(state.economy?.debt)||0),start=Number(state.economy?.debtStartDay)||state.day,critical=Number(state.economy?.debtCriticalDay)||state.day;
@@ -2773,9 +2792,9 @@ function openWardrobe(){
  if(debtBlocked('의상 구매와 스타일 관리'))return;
  const outfits=[['검은 셔츠',0,0],['흰 셔츠',180000,2],['체크 셔츠',240000,3],['가죽 재킷',480000,5],['후드티',320000,4],['무대 의상',1200000,8],['???',0,0],['군복',0,0],['수건',0,0],['운동복',0,0],['화려한 옷',0,0],['제복',0,0]];
  const styleRemain=styleCareCooldownRemaining();const styleHpNeed=effectiveHpCost(4);const styleReason=state.stats.looks>=100?'외모 최대':styleRemain>0?`${styleRemain}일 후 관리 가능`:state.stats.money<500000?'관리 비용 부족':state.stats.hp<styleHpNeed?`체력 부족 · ${styleHpNeed} 필요`:'';
- showModal('옷장',`<div class="card-list">${outfits.map(([x,price],i)=>{const owned=state.ownedOutfits.includes(i);if((i===6||i>=7)&&!owned)return '';const special=i===6;const flea=i>=7;return `<div class="info-card ${special?'mystery-outfit-card':''} wardrobe-outfit-card ${owned?'has-preview':'no-preview'}">${owned?`<img src="${outfitImage(i)}" alt="${x}">`:''}<div class="wardrobe-copy"><header><b>${x}</b><span>${special?'수상한 상인의 의상':flea?'플리마켓 의상':i===0?'기본 의상':price.toLocaleString()+'원'}</span></header>${special?'<p>착용하는 순간 외모가 최대치 100이 됩니다.</p>':''}<button data-outfit="${i}" ${state.outfit===i?'disabled':''}>${state.outfit===i?'착용 중':owned?'갈아입기':'구매하기'}</button></div></div>`}).join('')}<div class="info-card"><header><b>헤어·스타일 관리</b><span>500,000원</span></header><p>7일마다 한 번 이용할 수 있습니다. 체력 4를 사용하고 외모 +2. 관리 후 30일이 지나면 외모가 1씩 감소합니다.</p><button id="styleCare" ${styleReason?'disabled':''}>${styleReason||'관리받기'}</button></div></div>`);
+ showModal('옷장',`<div class="card-list">${outfits.map(([x,price],i)=>{const owned=state.ownedOutfits.includes(i);if((i===6||i>=7)&&!owned)return '';const special=i===6;const flea=i>=7;return `<div class="info-card ${special?'mystery-outfit-card':''} wardrobe-outfit-card ${owned?'has-preview':'no-preview'}">${owned?`<img src="${outfitImage(i)}" alt="${x}">`:''}<div class="wardrobe-copy"><header><b>${x}</b><span>${special?'수상한 상인의 의상':flea?'플리마켓 의상':i===0?'기본 의상':price.toLocaleString()+'원'}</span></header>${special?'<p>착용하는 순간 외모가 최대치 100이 됩니다.</p>':''}<button data-outfit="${i}" ${state.outfit===i?'disabled':''}>${state.outfit===i?'착용 중':owned?'갈아입기':'구매하기'}</button></div></div>`}).join('')}<div class="info-card"><header><b>헤어·스타일 관리</b><span>500,000원</span></header><p>15일마다 한 번 이용할 수 있습니다. 체력 4를 사용하고 외모 +1. 관리 후 30일이 지나면 외모가 1씩 감소합니다.</p><button id="styleCare" ${styleReason?'disabled':''}>${styleReason||'관리받기'}</button></div></div>`);
  $$('[data-outfit]').forEach(b=>b.onclick=()=>{const before=snapshotStats();const i=+b.dataset.outfit,[name,price,bonus]=outfits[i];if(!state.ownedOutfits.includes(i)){if(i>=7)return toast('이 의상은 공원 플리마켓에서 구입해야 합니다.');if(state.stats.money<price)return toast('옷을 구매할 돈이 부족합니다.');stat('money',-price);state.ownedOutfits.push(i);if(bonus)stat('looks',bonus)}state.outfit=i;if(i===6){state.stats.looks=100;addHistory('✨ 의상 「???」 착용 · 외모가 최대치 100이 되었다.','outfit:mystery-equipped')}const changes=describeStatChanges(before);showDialogue('류현상',dialogueWithStatChanges(`${name}으로 갈아입었다. 거울을 보며 “옷이 사람을 만든다는데, 성격까지 부드러워지진 않겠지.”라고 중얼거렸다.`,changes));save(false);closeModal();render()});
- const care=$('#styleCare');if(care)care.onclick=()=>{const remain=styleCareCooldownRemaining();if(remain>0)return toast(`헤어 스타일 관리는 ${remain}일 후 다시 이용할 수 있습니다.`);if(state.stats.money<500000)return toast('스타일 관리 비용 500,000원이 부족합니다.');if(!costHp(4))return;state.dailyUse.styleCareDay=state.day;state.dailyUse.styleCareLastDay=state.day;state.dailyUse.styleDecayCount=0;stat('money',-500000);stat('looks',2);if(state.stats.looks>=100)addHistory('✨ 외모 100 달성 · 무대 스타일이 완성됐다.','milestone:looks100');closeModal();showDialogue('류현상','50만원을 들여 머리와 의상을 전문적으로 정돈해 외모가 2 올랐다. 다음 헤어 스타일 관리는 7일 뒤에 받을 수 있다.');advance(1)}
+ const care=$('#styleCare');if(care)care.onclick=()=>{const remain=styleCareCooldownRemaining();if(remain>0)return toast(`헤어 스타일 관리는 ${remain}일 후 다시 이용할 수 있습니다.`);if(state.stats.money<500000)return toast('스타일 관리 비용 500,000원이 부족합니다.');if(!costHp(4))return;state.dailyUse.styleCareDay=state.day;state.dailyUse.styleCareLastDay=state.day;state.dailyUse.styleDecayCount=0;stat('money',-500000);stat('looks',1);if(state.stats.looks>=100)addHistory('✨ 외모 100 달성 · 무대 스타일이 완성됐다.','milestone:looks100');closeModal();showDialogue('류현상','50만원을 들여 머리와 의상을 전문적으로 정돈해 외모가 1 올랐다. 다음 헤어 스타일 관리는 15일 뒤에 받을 수 있다.');advance(1)}
 }
 
 const specialAlbumExtras={
@@ -3073,6 +3092,8 @@ function finishTerminalEnding(name){
  saveMetaEndings(collected);
  const storage=getStorage();
  if(storage){
+  // v194: 어떤 이유로든 자동저장을 삭제하기 직전 현재 진행을 별도 긴급 백업으로 보존한다.
+  backupEmergencySave(`${name} 완료 직전 진행 보존`);
   // 최종 엔딩을 실제로 끝낸 뒤에는 자동 저장을 제거해 같은 플레이를 이어서 할 수 없게 한다.
   storage.removeItem('ryuGame');
   storage.removeItem(AUTO_SAVE_KEY);
@@ -3100,7 +3121,7 @@ function runEndingStory(name,restartAfter=false){
  enterEndingMusic(name);
  setChoiceLock(false);
  const terminal=!!restartAfter;
- if(terminal){state.terminalEnding={name:migrateEndingName(name)};save(false)}
+ if(terminal){state.terminalEnding={name:migrateEndingName(name),proof:'v194'};save(false)}
  activeEndingSession={name,terminal};
  const chapters=getEndingChapters(name);
  let page=0;
@@ -3186,7 +3207,7 @@ function resumePersistentBlockingState(){
  const terminalName=state.terminalEnding?.name&&endingStories[state.terminalEnding.name]?state.terminalEnding.name:null;
  const riskCount=Math.max(0,Number(state.minigames?.matgoRiskCount)||0),riskPending=Number(state.minigames?.matgoRiskPending)||0;
  if(terminalName||riskCount>=15){
-  const name=terminalName||'도박꾼 엔딩';state.terminalEnding={name};save(false);persistentBlockingResumeQueued=true;
+  const name=terminalName||'도박꾼 엔딩';state.terminalEnding={name,proof:'v194'};save(false);persistentBlockingResumeQueued=true;
   setTimeout(()=>{persistentBlockingResumeQueued=false;if($('#gameScreen')?.classList.contains('active'))runEndingStory(name,true)},60);return true;
  }
  if([5,10].includes(riskPending)&&typeof matgoShowRiskEvent==='function'){
@@ -3290,7 +3311,7 @@ function render(){
  $('#mobileResources').innerHTML=[['💰','돈',`${state.stats.money.toLocaleString()}원`],['💳','채무',`${(state.economy.debt||0).toLocaleString()}원`],['👥','팬',`${state.stats.fans.toLocaleString()}명`],['✨','외모',state.stats.looks],['☁','스트레스',state.stats.stress],['⚡','박칵스',`${state.items.bakcas}개`],['🔋','에너자이저',`${state.items.energizer||0}개`],['🎤','마이크',equipmentDurabilityText('mic')],['🔊','음향',equipmentDurabilityText('amp')],['🧰','보호장비',equipmentDurabilityText('battery')]].map(([icon,label,value])=>`<div class="mobile-resource-chip"><span class="mobile-resource-icon">${icon}</span><span class="mobile-resource-label">${label}</span><b>${value}</b></div>`).join('');
  $('#scheduleList').innerHTML=`<li>현재: ${locations[state.location].name}</li><li>날씨: ${weatherLabel()} · ${dayType()}</li><li>집: ${housingInfo[state.housing][0]}</li><li>밴드 결속력: ${state.band.bond}</li><li>마이크: ${equipmentStatusText('mic')}</li><li>음향장비: ${equipmentStatusText('amp')}</li><li>보호 케이스: ${equipmentDurabilityText('battery')}</li>${energizerActive()?`<li>에너자이저: ${energizerRemainingDays()}일 남음 · 체력 소모 20% 감소</li>`:''}${state.manager.hired?`<li>후라보노 관계: ${state.manager.bond}</li>`:'<li>매니저: 미고용</li>'}`;
  $('#missionBox').innerHTML=`<p>팬 3,000명 달성</p><div class="progress"><span style="width:${Math.min(100,state.stats.fans/30)}%"></span></div><p>첫 앨범 발매 ${state.albums.length?'완료':'미완료'}</p><p>라이벌 스토리 ${state.rival.stage}/5</p>`;
- const homeHousingImages=['assets/images/home-basement.png','assets/images/home-oneroom.png','assets/images/home-duplex.png','assets/images/home-apartment.png','assets/images/home-penthouse.png'];const art=$('#characterArt');if(art){const src=outfitImage();if(!art.src.endsWith(src))art.src=src;}const scene=$('#scene');const specialKey=state.specialScene?.active?state.specialScene.key:null;const specialClassMap={iziViral:' special-izi-viral',waitedMoreViral:' special-waited-more-viral',day30Hair:' special-day30-hair',day60Workout:' special-day60-workout',day90Live:' special-day90-live',day120Chat:' special-day120-chat',day150Birthday:' special-day150-birthday',day180Archive:' special-day180-archive',day210Demo:' special-day210-demo',day240Meme:' special-day240-meme',day300Promise:' special-day300-promise',day330Mother:' special-day330-mother',day360Reflection:' special-day360-reflection',careerLv70:' special-career-lv70',careerLv80:' special-career-lv80',careerLv90:' special-career-lv90',actingExtra:' special-acting-extra',firstKissScene:' special-first-kiss-scene',hiddenGameOst:' special-hidden-game-ost',hiddenRadioDj:' special-hidden-radio-dj',hiddenDingo:' special-hidden-dingo',mysteriousMerchant:' special-mysterious-merchant',cardCollectorSpecial:' special-card-collector',cardTheft:' special-card-theft',hurabonoWeddingDay:' special-hurabono-wedding'};const specialLabelMap={iziViral:'수원역 · 특별 이벤트',waitedMoreViral:'명동 · 특별 이벤트',day30Hair:'자취방 · 30일 특별 이벤트',day60Workout:'자취방 · 60일 특별 이벤트',day90Live:'자취방 · 90일 특별 이벤트',day120Chat:'자취방 · 120일 특별 이벤트',day150Birthday:'생일 파티 · 150일 특별 이벤트',day180Archive:'자취방 · 180일 특별 이벤트',day210Demo:'연습실 · 210일 특별 이벤트',day240Meme:'자취방 · 240일 특별 이벤트',day300Promise:'공연장 · 300일 특별 이벤트',day330Mother:'카페 · 330일 특별 이벤트',day360Reflection:'자취방 · 360일 특별 이벤트',day400Fanmeet:'천안 JB아트홀 · 400일 특별 이벤트',day450ReturnSpring:'대전 · 다시 돌아 봄 · 450일 특별 이벤트',day500SchoolFestival:'고등학교 축제 · 500일 특별 이벤트',careerLv70:'대형 페스티벌 · 인지도 Lv.70 특별 이벤트',careerLv80:'전국 투어 · 인지도 Lv.80 특별 이벤트',careerLv90:'해외 쇼케이스 · 인지도 Lv.90 특별 이벤트',actingExtra:'연습실 · 사극 상인 엑스트라 특별 이벤트',firstKissScene:'뮤직비디오 촬영장 · 첫 키스신 특별 이벤트',hiddenGameOst:'카페 · 게임 OST 특별 이벤트',hiddenRadioDj:'라디오 스튜디오 · 특별 이벤트',hiddenDingo:'딩고 스튜디오 · 특별 이벤트',mysteriousMerchant:'이름 없는 골목 · 수상한 상인',cardCollectorSpecial:'자취방 앞 · 디지몬카드 전문 수집꾼',cardTheft:'자취방 · 카드 도난 사건',hurabonoWeddingDay:'웨딩홀 · 후라보노의 결혼식',restLooksNightmare:'자취방 · 휴식 랜덤 이벤트'};const specialClass=specialKey?(specialClassMap[specialKey]||''):'';const backgroundOnlyClass=specialKey&&specialSceneImageMap[specialKey]?' special-background-only':'';scene.className=`scene ${locations[state.location].cls} outfit-${state.outfit||0}${specialClass}${backgroundOnlyClass}`;scene.dataset.time=state.time;scene.style.setProperty('--spark-opacity',state.location==='stage'?'.58':state.location==='park'?'.46':'.32');const specialImage=specialKey?specialSceneImageMap[specialKey]:null;if(specialImage){const shade=specialKey==='mysteriousMerchant'?'linear-gradient(rgba(2,3,6,.10),rgba(2,3,6,.54))':'linear-gradient(rgba(4,6,10,.08),rgba(4,6,10,.38))';scene.style.setProperty('background-image',`${shade},url('${specialImage}')`,'important');scene.style.setProperty('background-position',specialKey==='mysteriousMerchant'?'center 38%':'center center','important');scene.style.setProperty('background-size','cover','important');scene.style.setProperty('background-repeat','no-repeat','important')}else if(state.location==='home'){const shade='linear-gradient(rgba(8,12,20,.10),rgba(8,12,20,.42))';const homeImage=homeHousingImages[Math.max(0,Math.min(homeHousingImages.length-1,Number(state.housing)||0))]||homeHousingImages[0];scene.style.setProperty('background-image',`${shade},url('${homeImage}')`,'important');scene.style.setProperty('background-position','center center','important');scene.style.setProperty('background-size','cover','important');scene.style.setProperty('background-repeat','no-repeat','important')}else{scene.style.removeProperty('background-image');scene.style.removeProperty('background-position');scene.style.removeProperty('background-size');scene.style.removeProperty('background-repeat')}bindScenePointer();$('#gameScreen').classList.toggle('story-lock',!!specialKey);$('#locationLabel').textContent=specialKey?(specialLabelMap[specialKey]||locations[state.location].name):locations[state.location].name;const basePool=getLocationDialoguePool(state.location);const d=state.dialogue||{name:'류현상',text:pick(basePool)};displayDialogue(d.name,d.text);if(state.pendingEnding)setTimeout(displayPendingEnding,0);
+ const homeHousingImages=['assets/images/home-basement.png','assets/images/home-oneroom.png','assets/images/home-duplex.png','assets/images/home-apartment.png','assets/images/home-penthouse.png'];const art=$('#characterArt');if(art){const src=outfitImage();if(!art.src.endsWith(src))art.src=src;}const scene=$('#scene');const specialKey=state.specialScene?.active?state.specialScene.key:null;const specialClassMap={iziViral:' special-izi-viral',waitedMoreViral:' special-waited-more-viral',day30Hair:' special-day30-hair',day60Workout:' special-day60-workout',day90Live:' special-day90-live',day120Chat:' special-day120-chat',day150Birthday:' special-day150-birthday',day180Archive:' special-day180-archive',day210Demo:' special-day210-demo',day240Meme:' special-day240-meme',day300Promise:' special-day300-promise',day330Mother:' special-day330-mother',day360Reflection:' special-day360-reflection',careerLv70:' special-career-lv70',careerLv80:' special-career-lv80',careerLv90:' special-career-lv90',actingExtra:' special-acting-extra',firstKissScene:' special-first-kiss-scene',hiddenGameOst:' special-hidden-game-ost',hiddenRadioDj:' special-hidden-radio-dj',hiddenDingo:' special-hidden-dingo',mysteriousMerchant:' special-mysterious-merchant',cardCollectorSpecial:' special-card-collector',cardTheft:' special-card-theft',hurabonoWeddingDay:' special-hurabono-wedding'};const specialLabelMap={iziViral:'수원역 · 특별 이벤트',waitedMoreViral:'명동 · 특별 이벤트',day30Hair:'자취방 · 30일 특별 이벤트',day60Workout:'자취방 · 60일 특별 이벤트',day90Live:'자취방 · 90일 특별 이벤트',day120Chat:'자취방 · 120일 특별 이벤트',day150Birthday:'생일 파티 · 150일 특별 이벤트',day180Archive:'자취방 · 180일 특별 이벤트',day210Demo:'연습실 · 210일 특별 이벤트',day240Meme:'자취방 · 240일 특별 이벤트',day300Promise:'공연장 · 300일 특별 이벤트',day330Mother:'카페 · 330일 특별 이벤트',day360Reflection:'자취방 · 360일 특별 이벤트',day400Fanmeet:'천안 JB아트홀 · 400일 특별 이벤트',day450ReturnSpring:'대전 · 다시 돌아 봄 · 450일 특별 이벤트',day500SchoolFestival:'고등학교 축제 · 500일 특별 이벤트',careerLv70:'대형 페스티벌 · 인지도 Lv.70 특별 이벤트',careerLv80:'전국 투어 · 인지도 Lv.80 특별 이벤트',careerLv90:'해외 쇼케이스 · 인지도 Lv.90 특별 이벤트',actingExtra:'연습실 · 사극 상인 엑스트라 특별 이벤트',firstKissScene:'뮤직비디오 촬영장 · 첫 키스신 특별 이벤트',hiddenGameOst:'카페 · 게임 OST 특별 이벤트',hiddenRadioDj:'라디오 스튜디오 · 특별 이벤트',hiddenDingo:'딩고 스튜디오 · 특별 이벤트',mysteriousMerchant:'이름 없는 골목 · 수상한 상인',cardCollectorSpecial:'자취방 앞 · 디지몬카드 전문 수집꾼',cardTheft:'자취방 · 카드 도난 사건',hurabonoWeddingDay:'웨딩홀 · 후라보노의 결혼식',restLooksNightmare:'자취방 · 휴식 랜덤 이벤트'};const specialClass=specialKey?(specialClassMap[specialKey]||''):'';const backgroundOnlyClass=specialKey&&specialSceneImageMap[specialKey]?' special-background-only':'';scene.className=`scene ${locations[state.location].cls} outfit-${state.outfit||0}${specialClass}${backgroundOnlyClass}`;scene.dataset.time=state.time;scene.style.setProperty('--spark-opacity',state.location==='stage'?'.58':state.location==='park'?'.46':'.32');const specialImage=specialKey?specialSceneImageMap[specialKey]:null;if(specialImage){const shade=specialKey==='mysteriousMerchant'?'linear-gradient(rgba(2,3,6,.10),rgba(2,3,6,.54))':'linear-gradient(rgba(4,6,10,.08),rgba(4,6,10,.38))';scene.style.setProperty('background-image',`${shade},url('${specialImage}')`,'important');scene.style.setProperty('background-position',specialKey==='mysteriousMerchant'?'center 38%':'center center','important');scene.style.setProperty('background-size',['mysteriousMerchant','cardCollectorSpecial','cardTheft','hurabonoWeddingDay','day330Mother','day360Reflection','day400Fanmeet','day450ReturnSpring','day500SchoolFestival','careerLv70','careerLv80','careerLv90','actingExtra','firstKissScene'].includes(specialKey)?'contain':'cover','important');scene.style.setProperty('background-repeat','no-repeat','important')}else if(state.location==='home'){const shade='linear-gradient(rgba(8,12,20,.10),rgba(8,12,20,.42))';const homeImage=homeHousingImages[Math.max(0,Math.min(homeHousingImages.length-1,Number(state.housing)||0))]||homeHousingImages[0];scene.style.setProperty('background-image',`${shade},url('${homeImage}')`,'important');scene.style.setProperty('background-position','center center','important');scene.style.setProperty('background-size','cover','important');scene.style.setProperty('background-repeat','no-repeat','important')}else{scene.style.removeProperty('background-image');scene.style.removeProperty('background-position');scene.style.removeProperty('background-size');scene.style.removeProperty('background-repeat')}bindScenePointer();$('#gameScreen').classList.toggle('story-lock',!!specialKey);$('#locationLabel').textContent=specialKey?(specialLabelMap[specialKey]||locations[state.location].name):locations[state.location].name;const basePool=getLocationDialoguePool(state.location);const d=state.dialogue||{name:'류현상',text:pick(basePool)};displayDialogue(d.name,d.text);if(state.pendingEnding)setTimeout(displayPendingEnding,0);
  const locationMarkup=Object.entries(locations).map(([k,v])=>`<button data-loc="${k}" class="${state.location===k?'active':''}" aria-pressed="${state.location===k}">${v.name}</button>`).join('');
  $('#locationButtons').innerHTML=locationMarkup;
  $('#mobileLocationButtons').innerHTML=locationMarkup;
@@ -3658,7 +3679,7 @@ function openItemMenu(){
  const reason=empty?'보유한 박칵스가 없습니다.':dailyLimit?'오늘 사용 횟수를 모두 소진했습니다.':fullHp?'체력이 이미 최대입니다.':'첫 사용은 체력 25, 두 번째 사용은 체력 20을 회복합니다.';
  const energizerCount=Math.max(0,Number(state.items.energizer)||0),dietCount=Math.max(0,Number(state.items.dietPill)||0),strongDietCount=Math.max(0,Number(state.items.strongDietPill)||0);
  const oneDietCost=effectiveHpCost(10),tenDietCost=effectiveHpCost(100),oneDietDisabled=dietCount<1||state.stats.hp<oneDietCost,tenDietDisabled=dietCount<10||state.stats.hp<tenDietCost;
- showModal('아이템',`<div class="card-list"><div class="info-card item-use-card"><b>⚡ 박칵스</b><p>보유 <strong>${state.items.bakcas}개</strong> · 오늘 <strong>${state.items.bakcasUsedToday}/2회</strong> 사용 · 현재 체력 <strong>${state.stats.hp}/100</strong></p><p>${reason}</p><button id="useBakcasFromItems" class="primary wide" ${disabled?'disabled':''}>박칵스 사용</button></div><div class="info-card item-use-card"><b>🔋 에너자이저</b><p>보유 <strong>${energizerCount}개</strong>${energizerActive()?` · 효과 ${energizerRemainingDays()}일 남음`:''}</p><p>먹으면 힘이 솟아날지도..</p><button id="useEnergizerFromItems" class="primary wide" ${energizerCount<1?'disabled':''}>${energizerCount<1?'보유 수량 없음':'에너자이저 사용'}</button></div><div class="info-card item-use-card"><b>💊 다이어트 알약</b><p>보유 <strong>${dietCount}알</strong></p><p>잘생겨질지도 모른다. 외모 증가 성공 확률이 크게 올랐다.</p><div class="choice-grid"><button id="useDietPillOne" ${oneDietDisabled?'disabled':''}>${dietCount<1?'보유 수량 없음':state.stats.hp<oneDietCost?`체력 부족 · ${oneDietCost} 필요`:'1알 먹기'}</button><button id="useDietPillTen" ${tenDietDisabled?'disabled':''}>${dietCount<10?`10알 필요 · 현재 ${dietCount}알`:state.stats.hp<tenDietCost?`체력 부족 · ${tenDietCost} 필요`:'10알 연속 먹기'}</button></div><small>외모 증가 성공 확률 15% · 1알당 체력 10·스트레스 2. 10알 연속 복용은 외모 감소 부작용 확률만 각 알약당 1%에서 1.5%로 증가합니다.</small></div><div class="info-card item-use-card"><b>💊 강력한 다이어트알약</b><p>보유 <strong>${strongDietCount}알</strong></p><p>굉장히 쎄보이는 다이어트약이다. 외모 +2 성공 확률 30%.</p><button id="useStrongDietPill" class="primary wide" ${strongDietCount<1?'disabled':''}>${strongDietCount<1?'보유 수량 없음':'1알 먹기'}</button></div></div>`,'items');
+ showModal('아이템',`<div class="card-list"><div class="info-card item-use-card"><b>⚡ 박칵스</b><p>보유 <strong>${state.items.bakcas}개</strong> · 오늘 <strong>${state.items.bakcasUsedToday}/2회</strong> 사용 · 현재 체력 <strong>${state.stats.hp}/100</strong></p><p>${reason}</p><button id="useBakcasFromItems" class="primary wide" ${disabled?'disabled':''}>박칵스 사용</button></div><div class="info-card item-use-card"><b>🔋 에너자이저</b><p>보유 <strong>${energizerCount}개</strong>${energizerActive()?` · 효과 ${energizerRemainingDays()}일 남음`:''}</p><p>먹으면 힘이 솟아날지도..</p><button id="useEnergizerFromItems" class="primary wide" ${energizerCount<1?'disabled':''}>${energizerCount<1?'보유 수량 없음':'에너자이저 사용'}</button></div><div class="info-card item-use-card"><b>💊 다이어트 알약</b><p>보유 <strong>${dietCount}알</strong></p><p>잘생겨질지도 모른다.</p><div class="choice-grid"><button id="useDietPillOne" ${oneDietDisabled?'disabled':''}>${dietCount<1?'보유 수량 없음':state.stats.hp<oneDietCost?`체력 부족 · ${oneDietCost} 필요`:'1알 먹기'}</button><button id="useDietPillTen" ${tenDietDisabled?'disabled':''}>${dietCount<10?`10알 필요 · 현재 ${dietCount}알`:state.stats.hp<tenDietCost?`체력 부족 · ${tenDietCost} 필요`:'10알 연속 먹기'}</button></div><small>1알당 체력 10·스트레스 2. 10알 연속 복용은 외모 감소 부작용 확률이 각 알약당 1%에서 1.5%로 소폭 증가합니다.</small></div><div class="info-card item-use-card"><b>💊 강력한 다이어트알약</b><p>보유 <strong>${strongDietCount}알</strong></p><p>굉장히 쎄보이는 다이어트약이다. 약이 잘들수도?</p><button id="useStrongDietPill" class="primary wide" ${strongDietCount<1?'disabled':''}>${strongDietCount<1?'보유 수량 없음':'1알 먹기'}</button></div></div>`,'items');
  const button=$('#useBakcasFromItems');if(button)button.onclick=()=>useBakcas(true);
  const energizerButton=$('#useEnergizerFromItems');if(energizerButton)energizerButton.onclick=useEnergizerItem;
  const dietOne=$('#useDietPillOne');if(dietOne)dietOne.onclick=()=>useDietPill(1);
@@ -4378,8 +4399,8 @@ async function leaveGostopRoom(callServer=true,goLobby=false,forfeit=false,finis
 
 
 
-$('#newGameBtn').onclick=()=>{activeEndingSession=null;forceAudioOn();setAudioScreenMode('title');const collected=loadMetaEndings();state=structuredClone(baseState);state.endings=collected;startPrologue()};
-$('#continueBtn').onclick=()=>{forceAudioOn();migrateLegacySave();const hasAny=!!readSave(AUTO_SAVE_KEY)||MANUAL_SAVE_KEYS.some(k=>!!readSave(k));if(!hasAny)return toast('저장된 게임이 없습니다.');openSaveManager('load')};
+$('#newGameBtn').onclick=()=>{activeEndingSession=null;forceAudioOn();setAudioScreenMode('title');migrateLegacySave();const current=readSave(AUTO_SAVE_KEY);if(current){const d=Math.max(1,Number(current.state?.day)||1);if(!confirm(`현재 ${d}일차 자동 저장이 있습니다.\n\n새 게임을 시작하면 자동 저장은 새 게임으로 바뀝니다. 기존 진행은 복구용 백업으로 보관됩니다.\n\n새 게임을 시작하시겠습니까?`))return;backupAutoSave(`새 게임 시작 전 ${d}일차 자동 백업`)}const collected=loadMetaEndings();state=structuredClone(baseState);state.endings=collected;startPrologue()};
+$('#continueBtn').onclick=()=>{forceAudioOn();migrateLegacySave();const hasAny=!!readSave(AUTO_SAVE_KEY)||!!readSave(RECOVERY_SAVE_KEY)||!!readSave(EMERGENCY_SAVE_KEY)||MANUAL_SAVE_KEYS.some(k=>!!readSave(k));if(!hasAny)return toast('저장된 게임이 없습니다.');openSaveManager('load')};
 $('#howBtn').onclick=()=>{forceAudioOn();openGameGuide()};
 $('#titleCommunityBtn').onclick=()=>{forceAudioOn();openCommunity()};$('#titleRankingBtn').onclick=()=>{forceAudioOn();openRanking()};
 $('#closeModal').onclick=()=>closeModal();$('#modal').addEventListener('cancel',e=>{if(activeEndingSession&&$('#modal')?.classList.contains('ending-focus-modal')){e.preventDefault();closeModal();return}if(window.matgoIsActive?.()){e.preventDefault();window.matgoRequestClose?.();return}if(memoryGameActive||blockingNoticeActive||instagramLiveActive){e.preventDefault();if(memoryGameActive)closeModal()}});$('#audioBtn').onclick=openAudioSettings;$('#menuBtn').onclick=()=>showModal('메뉴','<div class="card-list"><button id="menuCommunity" class="community-menu-button">커뮤니티</button><button id="menuRanking" class="ranking-menu-button">🏆 실시간 랭킹</button><button id="gameGuideBtn" class="primary">게임 설명 · 진행 가이드</button><button id="manualSave">저장 / 불러오기</button><button id="backTitle">타이틀로 돌아가기</button></div>');
@@ -4396,18 +4417,6 @@ document.addEventListener('click',e=>{
  e.preventDefault();e.stopImmediatePropagation();
  toast('먼저 선택지를 골라야 합니다. 수동 저장과 타이틀 이동만 가능합니다.');
 },true);
-
-
-const UPDATE_NOTICE_V193_KEY='ryuUpdateNoticeV193Seen';
-function showV193UpdateNotice(){
- const storage=getStorage();
- try{if(storage?.getItem(UPDATE_NOTICE_V193_KEY)==='1')return false}catch(_){ }
- if($('#modal')?.open)return false;
- showModal('업데이트 안내 · v193',`<div class="card-list update-notice-v193"><div class="info-card"><b>🖼 특별 이벤트 배경 화면 개선</b><p>모바일에서도 이벤트 배경이 화면을 꽉 채우도록 표시 방식을 수정했습니다. 화면 비율에 따라 가장자리가 일부 잘릴 수 있습니다.</p></div><div class="info-card"><b>💇 헤어·스타일 관리 상향</b><p><strong>15일 → 7일</strong>마다 이용 가능 · 외모 상승 <strong>+1 → +2</strong></p></div><div class="info-card"><b>💊 다이어트 알약 성공 확률 상향</b><p>일반 다이어트 알약 외모 증가 확률 <strong>1% → 15%</strong><br>강력한 다이어트알약 외모 +2 확률 <strong>2% → 30%</strong></p><small>기존 부작용 확률은 크게 올리지 않았습니다.</small></div><button id="v193UpdateConfirm" class="primary wide">업데이트 내용 확인</button></div>`);
- const confirm=$('#v193UpdateConfirm');
- if(confirm)confirm.onclick=()=>{try{storage?.setItem(UPDATE_NOTICE_V193_KEY,'1')}catch(_){ }closeModal(true)};
- return true;
-}
 
 migrateLegacySave();
 loadAudioSettings();
@@ -4450,9 +4459,8 @@ if(installBtn)installBtn.onclick=async()=>{
  }
 };
 refreshInstallUi();
-window.addEventListener('load',()=>setTimeout(()=>showV193UpdateNotice(),450),{once:true});
 try{window.matchMedia('(display-mode: standalone)').addEventListener('change',refreshInstallUi)}catch(_){}
-if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('service-worker.js?v=193-visual-balance-update',{updateViaCache:'none'});await reg.update();refreshInstallUi()}catch(err){console.warn('서비스워커 등록 실패',err);refreshInstallUi()}});
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('service-worker.js?v=193-save-reset-protection',{updateViaCache:'none'});await reg.update();refreshInstallUi()}catch(err){console.warn('서비스워커 등록 실패',err);refreshInstallUi()}});
 
 
 /* v36: iOS standalone PWA viewport synchronization */

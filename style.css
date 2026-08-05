@@ -704,7 +704,7 @@ html,body,#app{width:100%;height:100%;height:100dvh;min-height:0!important;overf
 /* === 0.15% 수상한 상인과 ??? 의상 === */
 .scene.special-mysterious-merchant{
  background-image:linear-gradient(rgba(2,3,6,.10),rgba(2,3,6,.54)),url('assets/images/mysterious-merchant.png')!important;
- background-position:center 38%!important;background-size:cover!important;background-repeat:no-repeat!important;background-color:#050608!important;
+ background-position:center 38%!important;background-size:contain!important;background-repeat:no-repeat!important;background-color:#050608!important;
 }
 .scene.special-mysterious-merchant .character-wrap,.scene.special-mysterious-merchant .character-shadow,.scene.special-mysterious-merchant .ambient-layer,.scene.special-mysterious-merchant .music-notes,.scene.special-mysterious-merchant .audience-lights,.scene.special-mysterious-merchant .action-burst{display:none!important}
 .scene.special-mysterious-merchant::before,.scene.special-mysterious-merchant::after{opacity:0!important;animation:none!important}
@@ -2218,6 +2218,3 @@ dialog.drawer-dialog .modal-body{max-height:78vh;padding:16px}
  #modal.theme-tetris #storeTetrisStart{min-height:32px;padding:.38rem}
  #modal.theme-tetris .tetris-keyboard-hint{display:none}
 }
-
-/* v193: 모바일 특별 이벤트 배경은 레터박스 없이 화면을 채운다. */
-.scene.special-background-only{background-size:cover!important;background-repeat:no-repeat!important;background-color:#050608!important}
