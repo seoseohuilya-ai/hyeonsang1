@@ -15,19 +15,64 @@
 .candidate{border:1px solid #3c4658;border-radius:12px;padding:12px;margin-top:9px;background:#151a23} .candidate strong{color:#fff} .candidate small{display:block;color:var(--muted);margin-top:5px;line-height:1.5}
 .bad{color:var(--bad)} .goodtxt{color:var(--good)} .pill{display:inline-block;padding:2px 7px;border-radius:999px;background:#30394a;color:#cdd5e4;font-size:.75rem;margin-left:6px}
 footer{color:#8893a6;font-size:.78rem;line-height:1.5;margin:18px 2px 30px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.grid label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:.82rem}.grid input,.grid select{width:100%;border:1px solid #48546a;background:#111722;color:#fff;border-radius:9px;padding:10px;font:inherit}.widefield{grid-column:1/-1}.warnbox{border:1px solid #7b3f3f;background:#2b1717;padding:11px;border-radius:10px;color:#ffd1d1;line-height:1.5}@media(max-width:560px){.grid{grid-template-columns:1fr}}
+
+/* v197 recovery access gate */
+body.locked main.wrap{display:none}
+.access-gate{min-height:calc(100vh - 36px);display:flex;align-items:center;justify-content:center}
+.access-box{width:min(520px,100%);background:rgba(27,32,43,.98);border:1px solid #59657a;border-radius:16px;padding:22px;box-shadow:0 14px 40px #0008}
+.access-box h1{margin:0 0 10px;font-size:1.35rem}.access-box p{color:var(--muted);line-height:1.6}.access-box input{width:100%;border:1px solid #59657a;background:#111722;color:#fff;border-radius:10px;padding:13px;font:inherit;margin:8px 0}.access-box .err{color:var(--bad);min-height:1.4em;font-size:.9rem}
+body:not(.locked) .access-gate{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body><main class="wrap">
+<body class="locked">
+<section class="access-gate" id="accessGate"><div class="access-box">
+<h1>🔐 긴급 복구센터 접근 인증</h1>
+<p>저장 초기화 피해자에게 전달받은 <b>복구 코드</b>를 입력해 주세요. 인증 전에는 복구 기능을 사용할 수 없습니다.</p>
+<input id="recoveryAccessCode" type="password" autocomplete="off" autocapitalize="characters" placeholder="복구 코드 입력">
+<div class="actions"><button class="primary" id="unlockRecovery">복구센터 열기</button></div>
+<div class="err" id="accessError"></div>
+<p style="font-size:.8rem">※ 이 페이지는 피해 복구용입니다. 정상 저장 이용자는 사용하지 마세요.</p>
+</div></section>
+<main class="wrap">
 <h1>🚑 류현상 키우기 긴급 저장 복구센터</h1>
 <p class="lead">1일차 초기화 사고용 복구 페이지입니다. 같은 GitHub Pages 주소에서 실행해야 기존 브라우저 저장소와 익명 Supabase 계정을 읽을 수 있습니다.</p>
 <div class="alert"><b>중요:</b> 먼저 이 페이지에서 복구를 시도하고, 앱 삭제·브라우저 데이터 삭제·사이트 데이터 삭제는 하지 마세요. 삭제된 자동저장 자체는 브라우저에서 되살릴 수 없지만, 남아 있는 수동 슬롯/백업/구버전 저장 또는 온라인 랭킹·커뮤니티 기록으로 최대한 복원합니다.</div>
 <section class="card"><h2>1. 기기 안에 남은 저장 전체 검색</h2><div class="actions"><button class="primary" id="scanLocal">저장 흔적 찾기</button><button id="exportAll">현재 저장소 진단파일 받기</button></div><div id="localStatus" class="status">아직 검색하지 않았습니다.</div><div id="localResults"></div></section>
-<section class="card"><h2>2. 온라인 기록으로 핵심 진행 복구</h2><p class="status">랭킹 기록과 본인이 과거에 작성한 커뮤니티 글의 [게임 기록]을 확인합니다. 이 방식은 날짜·돈·팬·인지도·보컬·작곡·연기·외모 같은 핵심 수치는 복구할 수 있지만, 서버에 저장되지 않았던 집/의상/장비/세부 이벤트는 정확히 복구하지 못할 수 있습니다.</p><div class="actions"><button class="primary" id="scanOnline">내 온라인 기록 찾기</button></div><div id="onlineStatus" class="status">아직 검색하지 않았습니다.</div><div id="onlineResults"></div></section>
-<section class="card"><h2>3. 복구 후</h2><div class="actions"><button class="good" id="goGame">게임으로 돌아가기</button></div><div class="status">복구를 누르면 현재 1일차 자동저장은 먼저 별도 비상 백업 키로 보존한 뒤, 복구된 데이터를 <b>ryuGameAuto</b>에 넣습니다.</div></section>
+<section class="card"><h2>2. 온라인 기록으로 핵심 진행 복구</h2><p class="status">이번 버전은 익명 로그인 세션이 사라졌어도 <b>기기에 남은 닉네임</b>으로 공개 랭킹과 과거 커뮤니티 기록을 다시 찾습니다. 서버 기록 중 가장 높은 일차를 우선합니다.</p><div class="grid"><label class="widefield">사용하던 닉네임<input id="recoveryNick" maxlength="16" placeholder="커뮤니티/랭킹 닉네임"></label></div><div class="actions" style="margin-top:9px"><button class="primary" id="scanOnline">온라인 기록 다시 찾기</button></div><div id="onlineStatus" class="status">아직 검색하지 않았습니다.</div><div id="onlineResults"></div></section>
+<section class="card"><h2>3. 서버에도 1일차만 남아 있을 때 · 수동 핵심 복구</h2><div class="warnbox">원본 자동저장이 이미 1일차로 덮어써졌고 서버 랭킹도 1일차로 갱신됐다면, 삭제된 원본 JSON을 브라우저가 다시 만들어낼 수는 없습니다. 대신 기억나는 진행 수치나 스크린샷/예전 랭킹을 기준으로 플레이를 계속할 수 있는 복구 저장을 만들 수 있습니다.</div><div class="grid" style="margin-top:10px"><label>진행 일차<input id="mDay" type="number" min="1" max="1000000" value="1"></label><label>인지도 레벨<input id="mFame" type="number" min="1" max="100" value="1"></label><label>팬 수<input id="mFans" type="number" min="0" value="0"></label><label>보유금<input id="mMoney" type="number" min="0" value="800000"></label><label>보컬<input id="mVocal" type="number" min="0" max="100" value="22"></label><label>작곡<input id="mCompose" type="number" min="0" max="100" value="16"></label><label>연기<input id="mActing" type="number" min="0" max="100" value="0"></label><label>외모<input id="mLooks" type="number" min="0" max="100" value="35"></label><label class="widefield">집<select id="mHousing"><option value="0">지하 단칸방</option><option value="1">1층 원룸</option><option value="2">복층 오피스텔</option><option value="3">아파트</option><option value="4">펜트하우스</option></select></label></div><div class="actions" style="margin-top:10px"><button class="good" id="manualRecover">입력한 수치로 복구 저장 만들기</button></div><div id="manualStatus" class="status"></div></section>
+<section class="card"><h2>4. 복구 후</h2><div class="actions"><button class="good" id="goGame">게임으로 돌아가기</button></div><div class="status">복구를 누르면 현재 1일차 자동저장은 먼저 별도 비상 백업 키로 보존한 뒤, 복구된 데이터를 <b>ryuGameAuto</b>에 넣습니다.</div></section>
 <footer>이 페이지는 자동저장을 삭제하지 않습니다. 복구 실행 전의 현재 자동저장도 별도 키로 남깁니다. 복구센터 파일은 문제 해결 후 GitHub에서 삭제해도 됩니다.</footer>
 </main>
 <script>
+
+const RECOVERY_GATE_HASH='99b4519cf5b39a30c6e0cefc24805e292b4cd15953f715de0c6a434630b37291';
+const RECOVERY_GATE_SESSION='ryuRecoveryAccessV197';
+async function recoveryGateDigest(value){
+  const bytes=new TextEncoder().encode(String(value||'').trim().toUpperCase());
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function openRecoveryGate(){
+  document.body.classList.remove('locked');
+  const input=document.getElementById('recoveryAccessCode'); if(input) input.value='';
+}
+async function tryUnlockRecovery(){
+  const input=document.getElementById('recoveryAccessCode');
+  const err=document.getElementById('accessError');
+  const value=input?.value||'';
+  if(!value.trim()){err.textContent='복구 코드를 입력해 주세요.';return}
+  try{
+    const got=await recoveryGateDigest(value);
+    if(got===RECOVERY_GATE_HASH){sessionStorage.setItem(RECOVERY_GATE_SESSION,'1');err.textContent='';openRecoveryGate();}
+    else{err.textContent='복구 코드가 올바르지 않습니다.'; if(input){input.value='';input.focus();}}
+  }catch(e){err.textContent='인증 처리 중 오류가 발생했습니다. 인터넷 브라우저에서 다시 실행해 주세요.';}
+}
+document.getElementById('unlockRecovery')?.addEventListener('click',tryUnlockRecovery);
+document.getElementById('recoveryAccessCode')?.addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlockRecovery()});
+if(sessionStorage.getItem(RECOVERY_GATE_SESSION)==='1')openRecoveryGate();
+
 const baseState={day:1,slot:0,time:0,location:'home',level:1,exp:0,rank:'무명 가수',weather:'sun',housing:0,endingPrompted:{},pendingEnding:null,stats:{hp:80,vocal:22,compose:16,acting:0,looks:35,fame:0,fans:0,money:800000,stress:10},equipment:{mic:false,amp:false,battery:false},equipmentModel:{mic:null,amp:null},equipmentDamage:{mic:false,amp:false},equipmentDurability:{mic:0,amp:0,battery:0},forcedRest:{count:0,lastTriggeredDay:-99},restStreak:0,restNightmares:{totalRests:0,lastTriggeredRest:0,seen:[]},dailyPractice:{vocalDay:0,composeDay:0,vocalPenaltyCount:0,composePenaltyCount:0,penaltyInterval:7},instruments:{acousticGuitar:false,keyboard:false,audioInterface:false,studioMic:false,monitorHeadphones:false},fanGroups:{regular:0,enthusiast:0,gay:0,overseas:0},sns:{lastPostDay:-99,totalPosts:0,lastLiveDay:-99,totalLives:0,lastLiveScenario:null,nextVocalBonus:0,nextComposeBonus:0,controversy:0,lastEventDay:-99},drawer:{photos:Array.from({length:7},()=>Array(9).fill(false)),photoMissStreak:0,diaries:[],diaryFoundDays:{},diaryCheckedDay:-99,diaryMissStreak:0,todayDiaryId:null,todayMessage:'',newPhotos:false,newDiary:false,lastTab:'photos'},rival:{met:false,stage:0,respect:0,lastEventDay:-99},items:{bakcas:1,energizer:0,dietPill:0,strongDietPill:0,bakcasUsedToday:0,mealsToday:0,bakcasBoughtToday:0,snacksBoughtToday:0},storeDaily:{promoDay:-99,customerDay:-99,flyerDay:-99,observeDay:-99,buskingDay:-99,buskingCount:0},storeJobs:{workCount:0,stockWorkCount:0},dailyUse:{styleCareDay:-99,styleCareLastDay:1,styleDecayCount:0,meditationDay:-99,meditationCount:0,walkDay:-99,walkCount:0},effects:{energizerUntilDay:0,energizerConsecutiveCount:0,energizerOverdose:false},fleaMarket:{cycleDay:0,soldOut:false,offers:[],purchased:[]},specialProgress:{cardCollectorOfferSeen:false,cardCollectorEligibleDay:0,cardCollectorVisitDone:false,cardCollectorDeclinedDay:0,cardTheftDone:false,weddingSongSeen:false,weddingInviteSeen:false,hurabonoWeddingDone:false},economy:{workStreak:0,lastWorkDay:-99,debt:0,totalDebtRepaid:0,lastDebtNoticeDay:-99,debtStartDay:0,debtCriticalDay:0},equippedInstruments:[],career:{peakFame:0,totalWork:0,totalConcerts:0,totalBroadcasts:0,totalBusking:0,soloBusking:0,bandBusking:0,actingCount:0,actingHits:0},manager:{hired:false,bond:0,wedding:false},band:{formed:false,bond:60,members:{guitar:null,bass:null,piano:null,drums:null}},bandTalk:{lastDay:{guitar:-99,bass:-99,piano:-99,drums:-99},lastTopic:{guitar:-1,bass:-1,piano:-1,drums:-1}},albums:[],endings:[],history:[],dialogue:null,seenEvents:[],soloStreak:0,outfit:0,ownedOutfits:[0],performanceCount:0,stalker:{active:false,resolved:false,encounters:0,safety:0,motherEvacuated:false},narrative:{lastMajorEventDay:-99,twentyDaySeen:[]},gambling:{cards:{C:0,U:0,R:0,SR:0,SEC:0,SP:0},totalCardDraws:0,spDraws:0,lotteryTickets:[],lotteryResults:[]},minigames:{songSurvivalLastDay:-99,quizShowLastDay:-99,songBestStage:0,quizBest:0,quizBag:[],cookingPlayed:0,cookingBest:0,cookingPerfect:0,storeTetrisBest:0,runnerBest:0,matgoCarry:1,matgoPlayed:0,matgoWins:0,matgoBest:0,matgoRiskVersion:188,matgoRiskCount:0,matgoRiskWarn5:false,matgoRiskWarn10:false,matgoRiskPending:0},arrogance:{lastDay:-99,count:0,lesson:0},specialEvents:{iziViral:false,waitedMoreViral:false,day30Hair:false,day60Workout:false,day90Live:false,day120Chat:false,day150Birthday:false,day180Archive:false,day210Demo:false,day240Meme:false,day300Promise:false,day330Mother:false,day360Reflection:false,day400Fanmeet:false,day450ReturnSpring:false,day500SchoolFestival:false,restLooksNightmare:false,hiddenGameOst:false,hiddenRadioDj:false,hiddenDingo:false,careerLv70:false,careerLv80:false,careerLv90:false,actingExtra:false,firstKissScene:false,mysteriousMerchantPurchased:false,cardCollectorVisit:false,cardTheft:false,hurabonoWeddingDay:false},specialScene:{active:false,key:null},preparation:{stageReady:false,stageReadyDay:-99,buskingInsight:false,buskingInsightDay:-99},cooldowns:{managerTalk:-99,recruit:-99,audition:-99,concert:-99,broadcast:-99,fanmeeting:-99,album:-99,fanEvent:-99,snsPost:-99},milestones:{firstAudition:false,firstConcert:false,firstBroadcast:false,firstFanmeeting:false,firstAlbum:false,managerHired:false,bandFormed:false,stalkerResolved:false,randomSeen:[]},historyKeys:[],lastAction:null,prologueSeen:false};
 baseState.minigames.matgoRiskVersion=186;
 const SUPABASE_URL='https://xhbnnebgcddfbvripzuy.supabase.co';
@@ -40,7 +85,8 @@ function looksLikeState(o){return !!(o&&typeof o==='object'&&Number.isFinite(Num
 function collectStates(obj,path='root',out=[],depth=0){if(!obj||typeof obj!=='object'||depth>5)return out;if(looksLikeState(obj))out.push({state:obj,path});if(obj.state&&looksLikeState(obj.state))out.push({state:obj.state,path:path+'.state',savedAt:obj.savedAt,version:obj.version});if(depth<5)for(const [k,v] of Object.entries(obj)){if(v&&typeof v==='object')collectStates(v,path+'.'+k,out,depth+1)}return out}
 function describe(s){const st=s.stats||{};return `${Number(s.day||1).toLocaleString()}일차 · 돈 ${Number(st.money||0).toLocaleString()}원 · 팬 ${Number(st.fans||0).toLocaleString()}명 · 인지도 Lv.${Math.max(1,Math.floor(Number(st.fame||0)/100)+1)} · 보컬 ${st.vocal||0} · 작곡 ${st.compose||0} · 연기 ${st.acting||0} · 외모 ${st.looks||0}`}
 function emergencyBackup(){const raw=localStorage.getItem(AUTO);if(raw){const key='ryuEmergencyBeforeRecovery_'+Date.now();localStorage.setItem(key,raw);return key}return ''}
-function writeRecovered(state,label){const backup=emergencyBackup();const rec={version:'1.5-emergency',savedAt:new Date().toISOString(),state:clone(state)};localStorage.setItem(AUTO,JSON.stringify(rec));localStorage.setItem('ryuEmergencyRecoveryInfo',JSON.stringify({source:label,at:new Date().toISOString(),backupKey:backup}));alert('복구 저장을 만들었습니다. 이제 게임으로 돌아가서 이어하기를 눌러 주세요.')}
+function sanitizeRecovered(state){const s=clone(state||baseState);s.day=Math.max(1,Number(s.day)||1);s.prologueSeen=true;s.location='home';s.pendingEnding=null;s.specialScene={active:false,key:null};delete s.terminalEnding;delete s.pendingTerminalEnding;delete s.endingRecovery;delete s.legacyTerminalEnding;delete s.activeEndingSession;if(s.minigames){s.minigames.matgoRiskVersion=186}s.history=Array.isArray(s.history)?s.history:[];s.history.push(`🚑 긴급 복구 저장 생성 · ${s.day}일차`);s.history=s.history.slice(-80);return s}
+function writeRecovered(state,label){const backup=emergencyBackup();const safe=sanitizeRecovered(state);const rec={version:'1.5',savedAt:new Date().toISOString(),state:safe};const raw=JSON.stringify(rec);localStorage.setItem('ryuEmergencyRecovered_'+Date.now(),raw);localStorage.setItem(AUTO,raw);const slot3=parseRaw(localStorage.getItem('ryuGameSlot3'));if(!slot3?.state||Number(slot3.state.day||1)<=1)localStorage.setItem('ryuGameSlot3',raw);localStorage.setItem('ryuEmergencyRecoveryInfo',JSON.stringify({source:label,at:new Date().toISOString(),backupKey:backup,recoveredDay:safe.day}));alert(`${safe.day}일차 복구 저장을 만들었습니다.\n자동저장과 비어 있던 저장 슬롯 3에도 보호 복사본을 남겼습니다.\n게임으로 돌아가서 이어하기를 눌러 주세요.`)}
 let localCandidates=[];
 function scanLocal(){localCandidates=[];const seen=new Set();for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);const raw=localStorage.getItem(key);if(!raw||raw.length<20)continue;const data=parseRaw(raw);if(!data)continue;for(const hit of collectStates(data,key)){const s=hit.state;const sig=key+'|'+hit.path+'|'+s.day+'|'+(hit.savedAt||'');if(seen.has(sig))continue;seen.add(sig);localCandidates.push({key,path:hit.path,state:clone(s),savedAt:hit.savedAt||data.savedAt||'',version:hit.version||data.version||''})}}
 localCandidates.sort((a,b)=>Number(b.state.day||1)-Number(a.state.day||1)||String(b.savedAt).localeCompare(String(a.savedAt)));
@@ -49,26 +95,59 @@ document.getElementById('localStatus').innerHTML=`<span class="goodtxt">${localC
 localCandidates.slice(0,20).forEach((c,i)=>{const div=document.createElement('div');div.className='candidate';div.innerHTML=`<strong>${esc(describe(c.state))}</strong><span class="pill">${esc(c.key)}</span><small>${esc(c.savedAt||'저장시각 없음')} · ${esc(c.path)}</small><div class="actions" style="margin-top:8px"><button class="good">이 저장으로 복구</button></div>`;div.querySelector('button').onclick=()=>{if(confirm(`${describe(c.state)}
 
 이 저장으로 자동저장을 복구할까요?`))writeRecovered(c.state,'local:'+c.key)};box.appendChild(div)})}
-function mergeServerCore(profile,postSnap){let s=clone(baseState);let current=null;try{const r=parseRaw(localStorage.getItem(AUTO));current=r?.state&&looksLikeState(r.state)?r.state:null}catch{}if(current){s=Object.assign(s,clone(current));s.stats=Object.assign(clone(baseState.stats),clone(current.stats||{}));}
-const p=profile||{},q=postSnap||{};const day=Math.max(Number(p.day||0),Number(q.day||0),1);s.day=day;s.prologueSeen=true;s.location='home';s.stats=s.stats||clone(baseState.stats);
-if(Number.isFinite(Number(p.money)))s.stats.money=Math.max(0,Number(p.money));
-if(Number.isFinite(Number(p.fans)))s.stats.fans=Math.max(Number(s.stats.fans||0),Number(p.fans));
-if(Number.isFinite(Number(p.looks)))s.stats.looks=Math.max(Number(s.stats.looks||0),Number(p.looks));
-if(Number.isFinite(Number(p.vocal)))s.stats.vocal=Math.max(Number(s.stats.vocal||0),Number(p.vocal));
-if(Number.isFinite(Number(p.compose)))s.stats.compose=Math.max(Number(s.stats.compose||0),Number(p.compose));
-if(Number.isFinite(Number(p.acting)))s.stats.acting=Math.max(Number(s.stats.acting||0),Number(p.acting));
-const fameLevel=Math.max(Number(p.fame_level||0),Number(q.fameLevel||0),1);s.stats.fame=Math.max(Number(s.stats.fame||0),(fameLevel-1)*100);
-if(Number(q.fans||0)>Number(s.stats.fans||0))s.stats.fans=Number(q.fans);
-if(Number(q.vocal||0)>Number(s.stats.vocal||0))s.stats.vocal=Number(q.vocal);
-if(Number(q.compose||0)>Number(s.stats.compose||0))s.stats.compose=Number(q.compose);
-if(Number(q.looks||0)>Number(s.stats.looks||0))s.stats.looks=Number(q.looks);
-s.level=fameLevel;s.career=s.career||clone(baseState.career);s.career.peakFame=Math.max(Number(s.career.peakFame||0),Number(s.stats.fame||0));s.minigames=s.minigames||clone(baseState.minigames);s.minigames.matgoRiskVersion=186;s.history=Array.isArray(s.history)?s.history:[];s.history.push(`🚑 긴급 복구 · 온라인 기록 기준 ${day}일차 핵심 진행 복원`);s.history=s.history.slice(-80);try{const meta=parseRaw(localStorage.getItem('ryuGameMeta'));if(Array.isArray(meta?.endings))s.endings=[...new Set([...(s.endings||[]),...meta.endings])]}catch{}return s}
+function serverStateFrom(profile,postSnap){
+ let s=clone(baseState);let current=null;try{const r=parseRaw(localStorage.getItem(AUTO));current=r?.state&&looksLikeState(r.state)?r.state:null}catch{}
+ if(current&&Number(current.day||1)>1){s=Object.assign(s,clone(current));s.stats=Object.assign(clone(baseState.stats),clone(current.stats||{}))}
+ const p=profile||{},q=postSnap||{};const day=Math.max(Number(p.day||0),Number(q.day||0),1);s.day=day;s.prologueSeen=true;s.location='home';s.stats=s.stats||clone(baseState.stats);
+ const profileTrusted=Number(p.day||0)>1;
+ if(profileTrusted&&Number.isFinite(Number(p.money)))s.stats.money=Math.max(0,Number(p.money));
+ if(profileTrusted&&Number.isFinite(Number(p.fans)))s.stats.fans=Math.max(Number(s.stats.fans||0),Number(p.fans));
+ if(profileTrusted&&Number.isFinite(Number(p.looks)))s.stats.looks=Math.max(Number(s.stats.looks||0),Number(p.looks));
+ if(profileTrusted&&Number.isFinite(Number(p.vocal)))s.stats.vocal=Math.max(Number(s.stats.vocal||0),Number(p.vocal));
+ if(profileTrusted&&Number.isFinite(Number(p.compose)))s.stats.compose=Math.max(Number(s.stats.compose||0),Number(p.compose));
+ if(profileTrusted&&Number.isFinite(Number(p.acting)))s.stats.acting=Math.max(Number(s.stats.acting||0),Number(p.acting));
+ const fameLevel=Math.max(profileTrusted?Number(p.fame_level||0):0,Number(q.fameLevel||0),1);s.stats.fame=Math.max(Number(s.stats.fame||0),(fameLevel-1)*100);
+ for(const k of ['fans','vocal','compose','acting','looks'])if(Number(q[k]||0)>Number(s.stats[k]||0))s.stats[k]=Number(q[k]);
+ s.level=fameLevel;s.career=s.career||clone(baseState.career);s.career.peakFame=Math.max(Number(s.career.peakFame||0),Number(s.stats.fame||0));s.minigames=s.minigames||clone(baseState.minigames);s.minigames.matgoRiskVersion=186;
+ s.history=Array.isArray(s.history)?s.history:[];s.history.push(`🚑 온라인 기록 기준 ${day}일차 핵심 진행 복원`);s.history=s.history.slice(-80);
+ try{const meta=parseRaw(localStorage.getItem('ryuGameMeta'));if(Array.isArray(meta?.endings))s.endings=[...new Set([...(s.endings||[]),...meta.endings])]}catch{}
+ return sanitizeRecovered(s)
+}
 function parsePostSnapshot(text){const t=String(text||'');const m=t.match(/(\d+)일차\s*·\s*인지도\s*Lv\.(\d+)\s*·\s*팬\s*([\d,]+)명[\s\S]*?보컬\s*(\d+)\s*·\s*작곡\s*(\d+)(?:\s*·\s*연기\s*(\d+))?\s*·\s*외모\s*(\d+)/);if(!m)return null;return {day:+m[1],fameLevel:+m[2],fans:+m[3].replace(/,/g,''),vocal:+m[4],compose:+m[5],acting:m[6]?+m[6]:0,looks:+m[7]}}
-async function scanOnline(){const st=document.getElementById('onlineStatus'),box=document.getElementById('onlineResults');box.innerHTML='';st.textContent='Supabase 익명 계정과 기록을 확인하는 중...';try{if(!window.supabase?.createClient)throw new Error('Supabase 라이브러리를 불러오지 못했습니다.');const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:false,detectSessionInUrl:false}});const ses=await db.auth.getSession();if(ses.error)throw ses.error;const session=ses.data.session;if(!session?.user?.id)throw new Error('이 브라우저에 기존 익명 계정 세션이 남아 있지 않습니다. 새 익명 계정은 만들지 않았습니다.');const uid=session.user.id;
-const [lr,pr]=await Promise.all([db.from('leaderboard_profiles').select('user_id,nickname,money,fans,looks,fame_level,vocal,compose,acting,total_score,day,updated_at').eq('user_id',uid).maybeSingle(),db.from('posts').select('content,created_at').eq('user_id',uid).order('created_at',{ascending:false}).limit(100)]);if(lr.error)throw lr.error;if(pr.error)throw pr.error;let bestPost=null;for(const row of pr.data||[]){const snap=parsePostSnapshot(row.content);if(snap&&(!bestPost||snap.day>bestPost.day))bestPost=snap}const profile=lr.data||null;if(!profile&&!bestPost)throw new Error('이 계정에서 복구 가능한 랭킹/커뮤니티 게임 기록을 찾지 못했습니다.');const rec=mergeServerCore(profile,bestPost);st.innerHTML='<span class="goodtxt">온라인 기록을 찾았습니다.</span>';
-const div=document.createElement('div');div.className='candidate';div.innerHTML=`<strong>${esc(describe(rec))}</strong><small>랭킹 기록: ${profile?`${profile.day}일차 · 갱신 ${profile.updated_at||''}`:'없음'}<br>과거 커뮤니티 게임 기록 최고 일차: ${bestPost?bestPost.day+'일차':'없음'}<br><span class="bad">주의: 서버에 없던 집·장비·의상·앨범·세부 이벤트는 완전 복구가 아닙니다.</span></small><div class="actions" style="margin-top:8px"><button class="good">이 온라인 기록으로 핵심 진행 복구</button></div>`;div.querySelector('button').onclick=()=>{if(confirm('온라인 기록으로 핵심 진행을 복구할까요?\n집/장비/의상/세부 이벤트는 완전 복구되지 않을 수 있습니다.'))writeRecovered(rec,'supabase:'+uid)};box.appendChild(div)
-}catch(e){st.innerHTML='<span class="bad">'+esc(e.message||e)+'</span>'}}
+function bestByDay(rows=[]){return rows.filter(Boolean).sort((a,b)=>Number(b.day||0)-Number(a.day||0)||String(b.updated_at||'').localeCompare(String(a.updated_at||'')))[0]||null}
+async function scanOnline(){
+ const st=document.getElementById('onlineStatus'),box=document.getElementById('onlineResults');box.innerHTML='';st.textContent='랭킹/커뮤니티 서버 기록을 확인하는 중...';
+ try{
+  if(!window.supabase?.createClient)throw new Error('Supabase 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+  const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:false,detectSessionInUrl:false}});
+  let uid='';try{const ses=await db.auth.getSession();uid=ses.data?.session?.user?.id||''}catch{}
+  const nick=(document.getElementById('recoveryNick').value||localStorage.getItem('ryuCommunityNickname')||'').trim();
+  const profileQueries=[];
+  if(uid)profileQueries.push(db.from('leaderboard_profiles').select('user_id,nickname,money,fans,looks,fame_level,vocal,compose,acting,total_score,day,updated_at').eq('user_id',uid));
+  if(nick)profileQueries.push(db.from('leaderboard_profiles').select('user_id,nickname,money,fans,looks,fame_level,vocal,compose,acting,total_score,day,updated_at').eq('nickname',nick).order('day',{ascending:false}).limit(20));
+  let profiles=[];for(const q of profileQueries){const r=await q;if(!r.error)profiles.push(...(r.data||[]))}
+  const postQueries=[];
+  if(uid)postQueries.push(db.from('posts').select('user_id,nickname,content,created_at').eq('user_id',uid).order('created_at',{ascending:false}).limit(500));
+  if(nick)postQueries.push(db.from('posts').select('user_id,nickname,content,created_at').eq('nickname',nick).order('created_at',{ascending:false}).limit(500));
+  let posts=[];for(const q of postQueries){const r=await q;if(!r.error)posts.push(...(r.data||[]))}
+  let bestPost=null;for(const row of posts){const snap=parsePostSnapshot(row.content);if(snap&&(!bestPost||snap.day>bestPost.day))bestPost={...snap,created_at:row.created_at}}
+  const bestProfile=bestByDay(profiles);const bestDay=Math.max(Number(bestProfile?.day||0),Number(bestPost?.day||0));
+  if(!bestProfile&&!bestPost)throw new Error(nick?'이 닉네임/기기에서 복구 가능한 온라인 기록을 찾지 못했습니다.':'기기에 닉네임이나 익명 계정이 남아 있지 않습니다. 사용하던 닉네임을 직접 입력해 주세요.');
+  if(bestDay<=1){st.innerHTML='<span class="bad">서버 기록도 현재 1일차만 남아 있습니다.</span> 아래 수동 핵심 복구를 사용해 주세요.';return}
+  const rec=serverStateFrom(bestProfile,bestPost);st.innerHTML=`<span class="goodtxt">${bestDay}일차 온라인 기록을 찾았습니다.</span>`;
+  const div=document.createElement('div');div.className='candidate';div.innerHTML=`<strong>${esc(describe(rec))}</strong><small>랭킹 최고 기록: ${bestProfile?bestProfile.day+'일차':'없음'}<br>커뮤니티 [게임 기록] 최고: ${bestPost?bestPost.day+'일차':'없음'}<br><span class="bad">집·의상·장비처럼 서버에 저장하지 않았던 항목은 정확히 복구되지 않을 수 있습니다.</span></small><div class="actions" style="margin-top:8px"><button class="good">이 기록으로 복구</button><button class="fillManual">수동 입력칸에 값 채우기</button></div>`;
+  div.querySelector('.good').onclick=()=>{if(confirm(`${bestDay}일차 온라인 기록으로 복구할까요?`))writeRecovered(rec,'online:'+(nick||uid))};
+  div.querySelector('.fillManual').onclick=()=>fillManual(rec);box.appendChild(div)
+ }catch(e){st.innerHTML='<span class="bad">'+esc(e.message||e)+'</span>'}
+}
+function fillManual(s){const st=s.stats||{};document.getElementById('mDay').value=Math.max(1,Number(s.day)||1);document.getElementById('mFame').value=Math.max(1,Math.floor(Number(st.fame||0)/100)+1);document.getElementById('mFans').value=Math.max(0,Number(st.fans)||0);document.getElementById('mMoney').value=Math.max(0,Number(st.money)||0);document.getElementById('mVocal').value=Math.max(0,Number(st.vocal)||0);document.getElementById('mCompose').value=Math.max(0,Number(st.compose)||0);document.getElementById('mActing').value=Math.max(0,Number(st.acting)||0);document.getElementById('mLooks').value=Math.max(0,Number(st.looks)||0);document.getElementById('mHousing').value=String(Math.max(0,Math.min(4,Number(s.housing)||0)))}
+function manualState(){
+ let s=clone(baseState);const num=(id,min,max)=>Math.max(min,Math.min(max,Number(document.getElementById(id).value)||0));
+ s.day=num('mDay',1,1000000);const fl=num('mFame',1,100);s.stats.money=num('mMoney',0,1000000000000);s.stats.fans=num('mFans',0,1000000000);s.stats.vocal=num('mVocal',0,100);s.stats.compose=num('mCompose',0,100);s.stats.acting=num('mActing',0,100);s.stats.looks=num('mLooks',0,100);s.stats.fame=(fl-1)*100;s.level=fl;s.housing=num('mHousing',0,4);s.prologueSeen=true;s.location='home';s.career.peakFame=s.stats.fame;s.minigames.matgoRiskVersion=186;
+ const fixed=[[30,'day30Hair'],[60,'day60Workout'],[90,'day90Live'],[120,'day120Chat'],[150,'day150Birthday'],[180,'day180Archive'],[210,'day210Demo'],[240,'day240Meme'],[300,'day300Promise'],[330,'day330Mother'],[360,'day360Reflection'],[400,'day400Fanmeet'],[450,'day450ReturnSpring'],[500,'day500SchoolFestival']];for(const [d,k] of fixed)if(s.day>d)s.specialEvents[k]=true;
+ s.narrative.twentyDaySeen=[];for(let d=20;d<s.day;d+=20)s.narrative.twentyDaySeen.push(d);s.history.push(`🚑 수동 핵심 복구 · ${s.day}일차`);return sanitizeRecovered(s)
+}
+function doManualRecover(){const s=manualState();if(s.day<=1&&!confirm('입력된 진행 일차가 1일차입니다. 그대로 복구할까요?'))return;if(confirm(`${describe(s)}\n\n이 값으로 복구 저장을 만들까요?`)){writeRecovered(s,'manual');document.getElementById('manualStatus').innerHTML=`<span class="goodtxt">${s.day}일차 복구 저장을 만들었습니다.</span>`}}
 function exportAll(){const data={exportedAt:new Date().toISOString(),origin:location.origin,items:{}};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);data.items[k]=localStorage.getItem(k)}const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ryu_recovery_diagnostic_'+Date.now()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-document.getElementById('scanLocal').onclick=scanLocal;document.getElementById('scanOnline').onclick=scanOnline;document.getElementById('exportAll').onclick=exportAll;document.getElementById('goGame').onclick=()=>location.href='./index.html';
-scanLocal();
+document.getElementById('scanLocal').onclick=scanLocal;document.getElementById('scanOnline').onclick=scanOnline;document.getElementById('manualRecover').onclick=doManualRecover;document.getElementById('exportAll').onclick=exportAll;document.getElementById('goGame').onclick=()=>location.href='./index.html';try{document.getElementById('recoveryNick').value=localStorage.getItem('ryuCommunityNickname')||''}catch{}scanLocal();
 </script></body></html>
