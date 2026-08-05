@@ -12,9 +12,9 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="assets/icons/icon-192.png" />
   <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
-  <link rel="stylesheet" href="style.css?v=197-no-doubletap-zoom" />
-  <link rel="stylesheet" href="matgo.css?v=197-no-doubletap-zoom" />
-  <title>류현상 키우기 v192</title>
+  <link rel="stylesheet" href="style.css?v=190-ranking-two-line" />
+  <link rel="stylesheet" href="matgo.css?v=175-first-kiss-scene" />
+  <title>류현상 키우기 v195 긴급복구</title>
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -30,7 +30,9 @@
           <button id="howBtn">게임 설명</button>
           <button id="titleCommunityBtn" class="community-title-btn">커뮤니티</button>
           <button id="titleRankingBtn" class="ranking-title-btn">🏆 실시간 랭킹</button>
+          <button id="titleRecoveryBtn" type="button" onclick="window.location.href='./recover.html'" style="border:2px solid #e5b94b;background:#3b2c10;color:#fff3c4;font-weight:900;box-shadow:0 0 0 2px rgba(229,185,75,.12) inset">🚑 긴급 데이터 복구</button>
         </div>
+        <p style="margin:10px 0 4px;color:#ffd97a;font-size:.86rem;line-height:1.45;font-weight:700">진행 데이터가 1일차로 초기화된 경우 위의 긴급 데이터 복구를 먼저 눌러 주세요. 앱은 삭제하지 마세요.</p>
         <button id="installBtn" class="install hidden">📲 앱으로 설치</button>
         <p id="installHint" class="install-hint hidden">홈 화면에 설치하면 앱처럼 전체화면으로 실행됩니다.</p>
       </div>
@@ -162,7 +164,7 @@
   <audio id="fatalEndingBgm" src="assets/audio/fatal-ending.mp3" preload="auto" loop hidden></audio>
   <audio id="springRainEndingBgm" src="assets/audio/spring-rain-ending.mp3" preload="auto" loop hidden></audio>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="game.js?v=197-no-doubletap-zoom"></script>
-  <script src="matgo.js?v=197-no-doubletap-zoom"></script>
+  <script src="game.js?v=190-ranking-two-line"></script>
+  <script src="matgo.js?v=190-ranking-two-line"></script>
 </body>
 </html>
