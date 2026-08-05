@@ -6,18 +6,7 @@
 
 let matgoGame=null;
 const MATGO_MIN_SCORE=7;
-const MATGO_RISK_VERSION=186;
-function matgoFameLevel(){try{return typeof fameLevel==='function'?Math.max(1,Math.min(100,Number(fameLevel())||1)):Math.max(1,Math.min(100,Math.floor((Number(state?.stats?.fame)||0)/100)+1))}catch{return 1}}
-function matgoRateForFame(){const lv=matgoFameLevel();return lv>=80?100000:lv>=50?50000:lv>=20?10000:1000}
-function matgoEnsureRiskState(){state.minigames=state.minigames||{};const m=state.minigames;if(Number(m.matgoRiskVersion)!==MATGO_RISK_VERSION){m.matgoRiskVersion=MATGO_RISK_VERSION;m.matgoRiskCount=0;m.matgoRiskWarn5=false;m.matgoRiskWarn10=false;m.matgoRiskPending=0}m.matgoRiskCount=Math.max(0,Math.min(15,Math.floor(Number(m.matgoRiskCount)||0)));return m}
-function matgoRiskStatus(){const m=matgoEnsureRiskState(),count=m.matgoRiskCount||0;return {count,risk:count>=10&&count<15,milestone:count>=15?15:count>=10?10:count>=5?5:0}}
-function matgoRegisterRiskRound(){const m=matgoEnsureRiskState();m.matgoRiskCount=Math.min(15,(m.matgoRiskCount||0)+1);let milestone=0;if(m.matgoRiskCount>=15)milestone=15;else if(m.matgoRiskCount===10&&!m.matgoRiskWarn10){m.matgoRiskWarn10=true;milestone=10}else if(m.matgoRiskCount===5&&!m.matgoRiskWarn5){m.matgoRiskWarn5=true;milestone=5}m.matgoRiskPending=milestone;return {count:m.matgoRiskCount,milestone}}
-function matgoRiskNoticeHtml(info){if(!info)return '';if(info.milestone===15)return `<div class="online-quiz-notice danger"><b>⚠️ 맞고·고스톱 누적 15회</b><br>도박에 빠진 결과를 피할 수 없습니다. 이번 판 결과를 확인한 뒤 강제 엔딩으로 이어집니다.</div>`;if(info.count>=10)return `<div class="online-quiz-notice danger"><b>⚠️ 도박중독 위험 · 맞고·고스톱 누적 ${info.count}/15회</b><br>${info.count>=14?'다음 맞고를 한 판 더 완료하면 강제 엔딩으로 이어집니다.':`15회까지 ${15-info.count}판 남았습니다. 맞고를 멈추는 것이 안전합니다.`}</div>`;if(info.count>=5)return `<div class="online-quiz-notice"><b>⚠️ 맞고·고스톱 과몰입 경고 · 누적 ${info.count}/15회</b><br>후라보노가 맞고를 줄이라고 경고했습니다.</div>`;return ''}
-function matgoShowRiskEvent(level){matgoSetFullscreen(false);matgoGame=null;closeModal(true);const m=matgoEnsureRiskState();m.matgoRiskPending=0;save(false);if(level===15){addHistory('🎴 맞고·고스톱 누적 15회 · 도박꾼 엔딩 진입','matgo:gambler-ending');save(false);setTimeout(()=>runEndingStory('도박꾼 엔딩',true),60);return}if(level===10){addHistory('⚠️ 맞고·고스톱 누적 10회 · 도박중독 위험 상태','matgo:risk-10');showDialogue('후라보노',`형, 이건 이제 그냥 심심풀이가 아니야. 업데이트 이후 맞고와 고스톱을 합쳐 벌써 10판이나 했어.
-
-연습이나 공연보다 화투판을 먼저 찾고 있잖아. 여기서 더 가면 정말 돌이키기 어려워. 앞으로는 맞고를 멈추는 게 좋아.`);save(false);return}addHistory('⚠️ 맞고·고스톱 누적 5회 · 과몰입 경고','matgo:risk-5');showDialogue('후라보노',`형... 요즘 맞고 너무 자주 하는 거 아니야?
-
-업데이트 이후 맞고와 고스톱을 합쳐 벌써 5판째야. 돈이 급한 건 알겠는데 이게 주된 돈벌이가 되면 안 돼. 이제부터는 좀 줄이자.`);save(false)}
+const MATGO_RATES=[1000,5000,10000,50000,100000];
 const MATGO_NAMES=['소나무','매화','벚꽃','등꽃','창포','모란','싸리','억새','국화','단풍','오동','비'];
 const MATGO_KIND_BY_ID=[
  'bright','ribbon','pi','pi',
@@ -96,10 +85,9 @@ function matgoSetFullscreen(on=false){
 function openMatgoLobby(message=''){
  matgoGame=null;
  matgoSetFullscreen(false);
- const carry=Math.max(1,Number(state?.minigames?.matgoCarry)||1),money=Math.max(0,Number(state?.stats?.money)||0),lv=matgoFameLevel(),rate=matgoRateForFame(),risk=matgoRiskStatus(),need=rate*MATGO_MIN_SCORE;
- const danger=risk.count>=10?`<div class="online-quiz-notice danger"><b>⚠️ 도박중독 위험 · 누적 ${risk.count}/15회</b><br>15회째 맞고가 끝나면 강제 엔딩으로 이어집니다.</div>`:risk.count>=5?`<div class="online-quiz-notice"><b>⚠️ 맞고 과몰입 경고 · 누적 ${risk.count}/15회</b><br>맞고는 이번 업데이트 이후의 완료 횟수만 집계합니다.</div>`:'';
- showModal('후라보노AI 1:1 맞고',`<div class="matgo-lobby"><button id="matgoBackHub" class="community-back">← 대전 종목 선택</button><section class="matgo-intro"><div><small>HURABONO AI MATGO</small><h3>후라보노AI 1:1 맞고</h3><p>인지도 레벨에 따라 점당 판돈이 자동으로 정해집니다. 기존 버전에서 했던 맞고 횟수는 도박 위험 횟수에 포함되지 않습니다.</p></div><span>🎴</span></section>${message?`<div class="online-quiz-notice">${matgoEsc(message)}</div>`:''}${danger}<div class="matgo-money"><span>현재 보유금</span><strong>${money.toLocaleString()}원</strong>${carry>1?`<em>이전 판 나가리: 다음 승부 ${carry}배</em>`:''}</div><section class="matgo-rate-grid"><button id="matgoFixedRate" ${money<need?'disabled':''}><span>인지도 Lv.${lv} 판돈</span><b>점당 ${rate.toLocaleString()}원</b><small>Lv.1~19 1천원 · Lv.20~49 1만원 · Lv.50~79 5만원 · Lv.80~100 10만원<br>최소 ${MATGO_MIN_SCORE}점 기준 ${need.toLocaleString()}원 필요</small></button></section><section class="matgo-rule-summary"><b>적용 룰</b><span>총통 · 흔들기 · 폭탄</span><span>뻑 · 자뻑 · 쪽 · 따닥 · 싹쓸이</span><span>홍단 · 청단 · 초단 · 고도리</span><span>피박 · 광박 · 멍따 · 고박</span><span>3고 이상 배수 · 나가리 이월</span><span>국진은 열끗/쌍피 중 유리한 쪽 자동 계산</span></section></div>`,'matgo');
- $('#matgoBackHub').onclick=()=>{matgoGame=null;openOnlineBattleHub()};const start=$('#matgoFixedRate');if(start)start.onclick=()=>startMatgo(rate);
+ const carry=Math.max(1,Number(state?.minigames?.matgoCarry)||1);const money=Math.max(0,Number(state?.stats?.money)||0);
+ showModal('후라보노AI 1:1 맞고',`<div class="matgo-lobby"><button id="matgoBackHub" class="community-back">← 대전 종목 선택</button><section class="matgo-intro"><div><small>HURABONO AI MATGO</small><h3>후라보노AI 1:1 맞고</h3><p>48장 화투로 실제 2인 맞고 방식에 가깝게 진행합니다. 점당 금액은 류현상 키우기의 가상 보유금과 연결됩니다.</p></div><span>🎴</span></section>${message?`<div class="online-quiz-notice">${matgoEsc(message)}</div>`:''}<div class="matgo-money"><span>현재 보유금</span><strong>${money.toLocaleString()}원</strong>${carry>1?`<em>이전 판 나가리: 다음 승부 ${carry}배</em>`:''}</div><section class="matgo-rate-grid">${MATGO_RATES.map(r=>`<button data-matgo-rate="${r}" ${money<r*MATGO_MIN_SCORE?'disabled':''}><span>점당</span><b>${r.toLocaleString()}원</b><small>최소 ${MATGO_MIN_SCORE}점 기준 ${(r*MATGO_MIN_SCORE).toLocaleString()}원 필요</small></button>`).join('')}</section><section class="matgo-rule-summary"><b>적용 룰</b><span>총통 · 흔들기 · 폭탄</span><span>뻑 · 자뻑 · 쪽 · 따닥 · 싹쓸이</span><span>홍단 · 청단 · 초단 · 고도리</span><span>피박 · 광박 · 멍따 · 고박</span><span>3고 이상 배수 · 나가리 이월</span><span>국진은 열끗/쌍피 중 유리한 쪽 자동 계산</span></section></div>`,'matgo');
+ $('#matgoBackHub').onclick=()=>{matgoGame=null;openOnlineBattleHub()};$$('[data-matgo-rate]').forEach(b=>b.onclick=()=>startMatgo(Number(b.dataset.matgoRate)));
 }
 
 function matgoFreshDeal(){
@@ -112,7 +100,7 @@ function matgoFreshDeal(){
 }
 function matgoFourMonth(hand){const g=matgoMonthGroups(hand);return Number(Object.keys(g).find(m=>g[m].length===4)||0)}
 function startMatgo(rate){
- rate=matgoRateForFame();matgoEnsureRiskState();if(state.stats.money<rate*MATGO_MIN_SCORE)return toast(`인지도 Lv.${matgoFameLevel()} 판돈으로 시작하려면 최소 ${(rate*MATGO_MIN_SCORE).toLocaleString()}원이 필요합니다.`);
+ rate=MATGO_RATES.includes(rate)?rate:1000;if(state.stats.money<rate*MATGO_MIN_SCORE)return toast(`최소 ${(rate*MATGO_MIN_SCORE).toLocaleString()}원이 필요합니다.`);
  const deal=matgoFreshDeal();const first=Math.random()<.5?'player':'ai';
  matgoGame={active:true,finished:false,rate,turn:first,turnNo:0,deck:deal.deck,table:deal.table,ppukByMonth:{},pending:null,lastDrawn:null,lastPlayed:null,selectedCard:null,busy:false,animation:null,captureFlash:null,log:`${first==='player'?'류현상':'후라보노'}이 선입니다.`,sideMoney:0,
   player:{hand:deal.player,captured:[],goCount:0,lastDecisionScore:0,shakeCount:0,bombCount:0,bombCredits:0,shakenMonths:[],ppukCount:0},
@@ -246,12 +234,10 @@ function matgoFinish(winner,reason='stop',extra={}){
  }else{
   const loser=winner==='player'?'ai':'player',r=matgoFinalBreakdown(winner,loser);points=r.score;mult=r.mult;tags=r.tags;const amount=r.finalPoints*matgoGame.rate;net+=(winner==='player'?amount:-amount);title=`${winner==='player'?'류현상':'후라보노'} 승리!`;body=`${points}점 × 최종 ${mult}배 = ${r.finalPoints}점`;state.minigames.matgoCarry=1;
  }
- const debtBefore=Math.max(0,Number(state.economy?.debt)||0),settled=matgoSettleMoney(net),debtAdded=Math.max(0,(Number(state.economy?.debt)||0)-debtBefore);state.minigames.matgoPlayed=(state.minigames.matgoPlayed||0)+1;if(winner==='player')state.minigames.matgoWins=(state.minigames.matgoWins||0)+1;state.minigames.matgoBest=Math.max(state.minigames.matgoBest||0,points*mult);const riskInfo=matgoRegisterRiskRound();
- addHistory(`🎴 후라보노AI 맞고 · ${title} · ${settled>=0?'+':''}${settled.toLocaleString()}원${debtAdded?` · 채무 +${debtAdded.toLocaleString()}원`:''} · v186 이후 누적 ${riskInfo.count}회`,`matgo:${state.day}:${Date.now()}`);save(false);render();playSfx?.(winner==='player'?'success':winner==='ai'?'fail':'click');
- const riskActions=riskInfo.milestone?`<div class="matgo-result-actions"><button id="matgoRiskContinue" class="primary">${riskInfo.milestone===15?'결과를 받아들인다':'경고 확인'}</button></div>`:`<div class="matgo-result-actions"><button id="matgoAgain" class="primary">한 판 더</button><button id="matgoLobbyBtn">맞고 로비</button><button id="matgoHubBtn">대전 메뉴</button></div>`;
- showModal('후라보노AI 1:1 맞고 · 결과',`<div class="matgo-result ${winner==='player'?'win':winner==='ai'?'lose':'draw'}"><small>MATGO RESULT</small><h2>${title}</h2><p>${body}</p>${tags.length?`<div class="matgo-result-tags">${tags.map(x=>`<span>${matgoEsc(x)}</span>`).join('')}</div>`:''}<div class="matgo-settlement"><span>점당 ${matgoGame.rate.toLocaleString()}원</span><strong>${settled>=0?'+':''}${settled.toLocaleString()}원</strong><small>현재 보유금 ${state.stats.money.toLocaleString()}원 · 채무 ${(state.economy?.debt||0).toLocaleString()}원${debtAdded?` · 이번 판 채무 +${debtAdded.toLocaleString()}원`:''}${matgoGame.sideMoney?` · 첫뻑 정산 포함`:''}</small></div>${matgoRiskNoticeHtml(riskInfo)}${riskActions}</div>`,'matgo');
- if(riskInfo.milestone){const close=$('#closeModal');if(close)close.hidden=true}
- const riskBtn=$('#matgoRiskContinue');if(riskBtn)riskBtn.onclick=()=>matgoShowRiskEvent(riskInfo.milestone);const again=$('#matgoAgain');if(again)again.onclick=()=>{if(riskInfo.count>=14&&!confirm('다음 맞고·고스톱 대전이 누적 15회째입니다. 완료하면 강제 엔딩으로 이어집니다. 그래도 진행할까요?'))return;startMatgo(matgoRateForFame())};const lobby=$('#matgoLobbyBtn');if(lobby)lobby.onclick=()=>openMatgoLobby();const hub=$('#matgoHubBtn');if(hub)hub.onclick=()=>{matgoGame=null;openOnlineBattleHub()};
+ const debtBefore=Math.max(0,Number(state.economy?.debt)||0),settled=matgoSettleMoney(net),debtAdded=Math.max(0,(Number(state.economy?.debt)||0)-debtBefore);state.minigames.matgoPlayed=(state.minigames.matgoPlayed||0)+1;if(winner==='player')state.minigames.matgoWins=(state.minigames.matgoWins||0)+1;state.minigames.matgoBest=Math.max(state.minigames.matgoBest||0,points*mult);
+ addHistory(`🎴 후라보노AI 맞고 · ${title} · ${settled>=0?'+':''}${settled.toLocaleString()}원${debtAdded?` · 채무 +${debtAdded.toLocaleString()}원`:''}`,`matgo:${state.day}:${Date.now()}`);save(false);render();playSfx?.(winner==='player'?'success':winner==='ai'?'fail':'click');
+ showModal('후라보노AI 1:1 맞고 · 결과',`<div class="matgo-result ${winner==='player'?'win':winner==='ai'?'lose':'draw'}"><small>MATGO RESULT</small><h2>${title}</h2><p>${body}</p>${tags.length?`<div class="matgo-result-tags">${tags.map(x=>`<span>${matgoEsc(x)}</span>`).join('')}</div>`:''}<div class="matgo-settlement"><span>점당 ${matgoGame.rate.toLocaleString()}원</span><strong>${settled>=0?'+':''}${settled.toLocaleString()}원</strong><small>현재 보유금 ${state.stats.money.toLocaleString()}원 · 채무 ${(state.economy?.debt||0).toLocaleString()}원${debtAdded?` · 이번 판 채무 +${debtAdded.toLocaleString()}원`:''}${matgoGame.sideMoney?` · 첫뻑 정산 포함`:''}</small></div><div class="matgo-result-actions"><button id="matgoAgain" class="primary">같은 판돈으로 한 판 더</button><button id="matgoLobbyBtn">판돈 다시 고르기</button><button id="matgoHubBtn">대전 메뉴</button></div></div>`,'matgo');
+ $('#matgoAgain').onclick=()=>startMatgo(matgoGame.rate);$('#matgoLobbyBtn').onclick=()=>openMatgoLobby();$('#matgoHubBtn').onclick=()=>{matgoGame=null;openOnlineBattleHub()};
 }
 
 function renderMatgo(){

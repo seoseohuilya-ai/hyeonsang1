@@ -1,6 +1,6 @@
 -- 류현상 키우기 v179 실시간 랭킹용 Supabase 설정
 -- Supabase Dashboard > SQL Editor > New query 에 전체 붙여넣고 Run 하세요.
--- 기존 v178/v179 설정 사용자는 별도 SUPABASE_RANKING_V187_FAME_UPDATE.sql을 한 번 실행하세요.
+-- v178 설정을 이미 실행했다면 다시 실행할 필요는 없습니다.
 -- v179부터 엔딩 정보는 스포일러 방지를 위해 온라인 랭킹에 저장/표시하지 않습니다.
 
 create table if not exists public.leaderboard_profiles (
@@ -13,7 +13,7 @@ create table if not exists public.leaderboard_profiles (
   vocal smallint not null default 0 check (vocal between 0 and 100),
   compose smallint not null default 0 check (compose between 0 and 100),
   acting smallint not null default 0 check (acting between 0 and 100),
-  total_score smallint not null default 0 check (total_score between 0 and 500),
+  total_score smallint not null default 0 check (total_score between 0 and 400),
   day integer not null default 1 check (day between 1 and 1000000),
   updated_at timestamptz not null default now()
 );
